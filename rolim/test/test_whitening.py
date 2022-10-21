@@ -44,8 +44,13 @@ from rolim.tools.stats import sample_covar
 
 class WhitenTestCase(unittest.TestCase):
     
+    def test_random_3x3(self):
+        inp = torch.rand((3,3), dtype=torch.float)
+        assert(torch.dist(torch.eye(3), torch.linalg.inv(inp) @ inp) < 0.01),\
+                "Testcase broken: matrix not invertible"
+        self.run_test_whiten(inp)
 
-    def test_whiten(self, input_vectors: Tensor):
+    def run_test_whiten(self, input_vectors: Tensor):
         """
         Call `whiten()` on the input,
         and test if the output has:

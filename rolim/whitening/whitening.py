@@ -38,8 +38,13 @@ Note that it is not part of the encoder itself:
 it is only used for computing the MSE for backpropagation.
 """
 
+# Library imports:
 import torch
 from torch import Tensor
+
+# Local imports:
+from rolim.tools.stats import sample_covar
+from rolim.tools.testing import assert_tensor_eq
 
 def whiten(vectors: Tensor) -> Tensor:
     """
@@ -50,6 +55,17 @@ def whiten(vectors: Tensor) -> Tensor:
     which has the property that W.t@W = Σ^{-1},
     the inverse of the sample covariance of `vectors`.
     """
-    raise NotImplementedError()
+    mean = torch.mean(vectors, dim=1)
+    covar = sample_covar(vectors, ddof=1)
+    identity = torch.eye(covar.shape[0])
+    covar_inv = torch.linalg.solve(covar, identity)
+    if not torch.allclose(identity, covar_inv @ covar):
+        raise RuntimeError("Unable to invert the matrix:\n"+str(covar)
+                           + "\n Resulting product Σ^{-1} @ Σ:\n"
+                           + str(covar_inv @ covar))
+    # assert_tensor_eq(identity, covar_inv @ covar)
+    w = torch.linalg.cholesky(covar_inv)
+    return w @ (vectors - mean)
+    
 
 
