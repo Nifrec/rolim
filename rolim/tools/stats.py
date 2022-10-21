@@ -58,8 +58,6 @@ def sample_covar(vectors: Tensor, ddof: int=1) -> Tensor:
         samples at index `i` and samples at index `j`.
     """
     mean = torch.mean(vectors, dim=1)
-    print(mean.shape)
-    print(mean.reshape((-1, 1)))
     normalized = vectors - mean.reshape((-1, 1))
     sum_squares = normalized @ normalized.T
     sample_size = vectors.shape[1]
