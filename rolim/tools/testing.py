@@ -36,8 +36,13 @@ Helper functions for writing testcases.
 import torch
 from torch import Tensor
 
-def assert_tensor_eq(expected: Tensor, result: Tensor):
+def assert_tensor_eq(expected: Tensor, result: Tensor, atol: float=1e-08):
+    """
+    Test if two tensors are approximately equal.
+    `atol` gives the maximum absolute error (the norm of the matrix
+    `expected-tesult`).
+    """
     assert (expected.shape == result.shape), \
             f"Shape mismatch; expected: {expected.shape}, got: {result.shape}"
-    assert torch.allclose(expected, result), \
+    assert torch.allclose(expected, result, atol=atol), \
             f"Elements mismatch. expected:\n{expected}\nGot:\n{result}"
