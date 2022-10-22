@@ -46,8 +46,15 @@ class WhitenTestCase(unittest.TestCase):
     
     def test_random_3x3(self):
         inp = torch.rand((3,3), dtype=torch.float)
-        assert(torch.dist(torch.eye(3), torch.linalg.inv(inp) @ inp) < 0.01),\
-                "Testcase broken: matrix not invertible"
+        self.run_test_whiten(inp)
+
+    def test_fixed_4x5(self):
+        inp = torch.tensor([
+            [3, 4, 7.5, 1, 2],
+            [8, 0, -10, -100, -1000],
+            [4, 3, 2, 1, 1000],
+            [8.1, 1, 2, 3, 4]],
+            dtype=torch.float)
         self.run_test_whiten(inp)
 
     def run_test_whiten(self, input_vectors: Tensor):
