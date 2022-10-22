@@ -42,6 +42,10 @@ from rolim.whitening.whitening import whiten
 from rolim.tools.testing import assert_tensor_eq
 from rolim.tools.stats import sample_covar
 
+# Allowed numerical error (distance) between theoretical
+# and computed mean/covariance matrices.
+ATOL = 0.1
+
 class WhitenTestCase(unittest.TestCase):
     
     def test_random_3x3(self):
@@ -57,7 +61,7 @@ class WhitenTestCase(unittest.TestCase):
             dtype=torch.float)
         self.run_test_whiten(inp)
 
-    def run_test_whiten(self, input_vectors: Tensor):
+    def run_test_whiten(self, input_vectors: Tensor, atol: float = ATOL):
         """
         Call `whiten()` on the input,
         and test if the output has:
@@ -76,11 +80,11 @@ class WhitenTestCase(unittest.TestCase):
 
         expected_mean = torch.zeros(vector_len)
         result_mean = torch.mean(result, dim=1) # Mean of each row
-        assert_tensor_eq(expected_mean, result_mean) 
+        assert_tensor_eq(expected_mean, result_mean, atol=atol)
 
         expected_covar = torch.eye(vector_len)
         result_covar = sample_covar(result)
-        assert_tensor_eq(expected_covar, result_covar)
+        assert_tensor_eq(expected_covar, result_covar, atol=atol)
 
 if __name__ == "__main__":
     unittest.main()
