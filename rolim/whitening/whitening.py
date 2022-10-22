@@ -68,8 +68,9 @@ def whiten(vectors: Tensor,
         Must be of floating datatype.
     * reg_eps: small positive constant to add to the
         diagonal entries of the covariance matrix of `vectors`
-        to make it better conditioned for inversion
-        (a needed step to compute the whitening transform).
+        to make it better conditioned for Cholesky decomposition
+        (it needs to be positive definite for that,
+        but numerical error may not make it so).
     * do_validate: flag whether to run assertions
         on the correctness of decompositions and versions.
 
