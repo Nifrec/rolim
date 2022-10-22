@@ -77,28 +77,24 @@ def whiten(vectors: Tensor,
     * Copy of `vectors`, with the whitening transform applied
         to each column-vector.
     """
-    mean = torch.mean(vectors, dim=1)
+    mean = torch.mean(vectors, dim=1).reshape((-1, 1))
     raw_covar = sample_covar(vectors, ddof=1)
     identity = torch.eye(raw_covar.shape[0])
-    reg_covar = (identity - reg_eps) @ raw_covar + reg_eps*identity
+    reg_covar = (1 - reg_eps) * raw_covar + reg_eps*identity
     # The cited paper *first* runs the decomposition,
     # and thereafter inverts the decomposition-output.
     # The main text in papers make it look like done the other way around.
     w = torch.linalg.cholesky(reg_covar)
-
+    w_inv = torch.linalg.solve(w, identity)
     if do_validate:
-        _validate_whiten(w, vectors)
+        _validate_whiten(w, w_inv, vectors)
+    return w_inv @ (vectors - mean)
 
-    # The output of the Cholesky transform is always lower-triangular
-    return torch.triangular_solve(w, vectors - mean, upper=False)
-
-def _validate_whiten(w: Tensor, vectors: Tensor):
+def _validate_whiten(w: Tensor, w_inv: Tensor, reg_covar: Tensor):
     # Check if the decomposition is correct
-    assert_tensor_eq(w @ w.T, vectors)
+    assert_tensor_eq(w.T @ w, reg_covar)
     # Check if w is indeed invertible
     identity = torch.eye(w.shape[0])
-    w_inv = torch.triangular_solve(w, identity,
-                                   upper=False),
     assert_tensor_eq(w_inv @ w, identity)
 
 def whiten_naive(vectors: Tensor) -> Tensor:
