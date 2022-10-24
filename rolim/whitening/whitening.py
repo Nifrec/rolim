@@ -41,6 +41,7 @@ it is only used for computing the MSE for backpropagation.
 # Library imports:
 import torch
 from torch import Tensor
+from warnings import warn
 
 # Local imports:
 from rolim.tools.stats import sample_covar
@@ -113,12 +114,12 @@ def whiten_naive(vectors: Tensor) -> Tensor:
     which has the property that W.t@W = Σ^{-1},
     the inverse of the sample covariance of `vectors`.
     """
-    mean = torch.mean(vectors, dim=1)
+    mean = torch.mean(vectors, dim=1).reshape((-1, 1))
     covar = sample_covar(vectors, ddof=1)
     identity = torch.eye(covar.shape[0])
     covar_inv = torch.linalg.solve(covar, identity)
     if not torch.allclose(identity, covar_inv @ covar):
-        raise RuntimeError("Unable to invert the matrix:\n"+str(covar)
+        warn("Unable to invert the matrix:\n"+str(covar)
                            + "\n Resulting product Σ^{-1} @ Σ:\n"
                            + str(covar_inv @ covar))
     w = torch.linalg.cholesky(covar_inv)
