@@ -37,6 +37,10 @@ TODO: substitute this placeholder with actual description.
 # Library imports:
 import torch
 from torch import Tensor
+from torch.distributions.multivariate_normal import MultivariateNormal
+
+# Local imports:
+from rolim.settings import WHITEN_REG_EPS
 
 def sample_covar(vectors: Tensor, ddof: int=1) -> Tensor:
     r"""
@@ -70,3 +74,27 @@ def square_vector(vec: Tensor) -> Tensor:
     """
     vec = vec.view((-1, 1)) # Convert to column vector
     return vec @ vec.T
+
+def randomized_multinormal_distr(dim: int) -> MultivariateNormal:
+    """
+    Sample a random mean vector and (the covariance of) a random matrix
+    from a standard multinormal distribution,
+    and return a multinormal distribution with this mean and covariance.
+
+    Arguments:
+    * dim: dimension of the output distribution
+        (i.e. length of sampled vectors, length of the distribution's mean,
+        and the covariance is a `dim×dim` matrix).
+
+    Returns:
+    * Instantiated mulinormal distribution object.
+    """
+    standard_normal = MultivariateNormal(loc=torch.zeros(dim),
+                                         covariance_matrix=torch.eye(dim))
+    mean = standard_normal.sample(torch.Size((1,)))
+    # Sample 10 times as many vectors as the dimension of the covar matrix:
+    # a bigger sample makes it more likely that the numerical
+    # sample covariance is Positive Definite.
+    covar = sample_covar(standard_normal.sample(torch.Size((10*dim,))))
+
+    return MultivariateNormal(loc=mean, covariance_matrix=covar)
