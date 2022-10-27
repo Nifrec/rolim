@@ -38,6 +38,7 @@ TODO: substitute this placeholder with actual description.
 import torch
 from torch import Tensor
 from torch.distributions.multivariate_normal import MultivariateNormal
+from typing import Optional
 
 # Local imports:
 from rolim.settings import WHITEN_REG_EPS
@@ -75,26 +76,48 @@ def square_vector(vec: Tensor) -> Tensor:
     vec = vec.view((-1, 1)) # Convert to column vector
     return vec @ vec.T
 
-def randomized_multinormal_distr(dim: int) -> MultivariateNormal:
+def randomized_multinormal_distr(dim: int,
+                                 reg_eps: float=WHITEN_REG_EPS,
+                                 parent_mean : Optional[Tensor] = None,
+                                 covar_scale: Optional[float] = 1.0
+                                 ) -> MultivariateNormal:
     """
     Sample a random mean vector and (the covariance of) a random matrix
-    from a standard multinormal distribution,
+    from a standard multinormal distribution (which can be
+    modified with the optional arguments),
     and return a multinormal distribution with this mean and covariance.
 
     Arguments:
     * dim: dimension of the output distribution
         (i.e. length of sampled vectors, length of the distribution's mean,
         and the covariance is a `dim×dim` matrix).
+    * reg_eps: number in [0, 1], proportion to which the
+        sampled covariance matrix is blended with an identity matrix
+        (used for numerical stability).
+    * parent_mean: mean for the distribution where the mean for the output
+        distribution is sampled from. By default the zero vector is used.
+    * covar_scale: multiplier for the covariance of the distribution
+        from which the mean and covariance are generated.
 
     Returns:
     * Instantiated mulinormal distribution object.
+
+
+    NOTE: randomizing the input of the optional arguments seem to have more
+    effect than the random sampling executed within this function.
     """
-    standard_normal = MultivariateNormal(loc=torch.zeros(dim),
-                                         covariance_matrix=torch.eye(dim))
+    if parent_mean is None:
+        parent_mean = torch.zeros(dim)
+    standard_normal = MultivariateNormal(
+            loc=parent_mean,
+            covariance_matrix=covar_scale*torch.eye(dim))
     mean = standard_normal.sample(torch.Size((1,)))
     # Sample 10 times as many vectors as the dimension of the covar matrix:
     # a bigger sample makes it more likely that the numerical
     # sample covariance is Positive Definite.
-    covar = sample_covar(standard_normal.sample(torch.Size((10*dim,))))
+    random_mat = standard_normal.sample(torch.Size((10*dim,))).T
+    assert(random_mat.shape == (dim, 10*dim))
+    covar = sample_covar(random_mat)
+    covar = (1-reg_eps) * covar + reg_eps * torch.eye(dim)
 
     return MultivariateNormal(loc=mean, covariance_matrix=covar)

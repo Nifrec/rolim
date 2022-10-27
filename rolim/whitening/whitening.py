@@ -101,7 +101,7 @@ def _validate_whiten(w: Tensor, w_inv: Tensor, reg_covar: Tensor):
     identity = torch.eye(w.shape[0])
     assert_tensor_eq(w_inv @ w, identity)
 
-def whiten_naive(vectors: Tensor) -> Tensor:
+def whiten_naive(vectors: Tensor, do_validate: bool=False) -> Tensor:
     """
     WARNING: this is the naive implementation
     of the whitening transorm, following the
@@ -120,7 +120,7 @@ def whiten_naive(vectors: Tensor) -> Tensor:
     covar = sample_covar(vectors, ddof=1)
     identity = torch.eye(covar.shape[0])
     covar_inv = torch.linalg.solve(covar, identity)
-    if not torch.allclose(identity, covar_inv @ covar):
+    if do_validate and not torch.allclose(identity, covar_inv @ covar):
         warn("Unable to invert the matrix:\n"+str(covar)
                            + "\n Resulting product Σ^{-1} @ Σ:\n"
                            + str(covar_inv @ covar))
