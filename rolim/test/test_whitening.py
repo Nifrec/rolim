@@ -38,7 +38,7 @@ import torch
 from torch import Tensor
 
 # Local imports:
-from rolim.whitening.whitening import whiten
+from rolim.whitening.whitening import compute_whiten_error, whiten
 from rolim.tools.testing import assert_tensor_eq
 from rolim.tools.stats import sample_covar
 
@@ -85,6 +85,34 @@ class WhitenTestCase(unittest.TestCase):
         expected_covar = torch.eye(vector_len)
         result_covar = sample_covar(result)
         assert_tensor_eq(expected_covar, result_covar, atol=atol)
+
+class WhitenErrorTestCase(unittest.TestCase):
+    def test_zero_mean(self):
+        """
+        Input has zero mean, so the mean MSE should be 0.
+        """
+        inp = torch.tensor([
+            [1, 2, -3],
+            [2, 3, -5],
+            [0, 1, -1]], dtype=torch.float)
+        mean_mse, covar_mse = compute_whiten_error(inp)
+        self.assertAlmostEqual(mean_mse, 0.0)
+
+    def test_identity_covar(self):
+        """
+        The matrix of only 1s has the zero
+        matrix as covariance. So the MSE is 1 / dim.
+        (Each row has 1 element where the zero matrix differs
+        by 1 from the identity matrix. The row has `dim` values,
+        so the mean squared error in the row 
+        is `(1^2 + 0^2*(dim-1))/dim` = `1/dim`.
+        It is the same for all rows, resulting in `1/dim`.
+        """
+        dim=5
+        mean_mse, covar_mse = compute_whiten_error(torch.ones((dim, dim)))
+        self.assertAlmostEqual(covar_mse, 1.0 / dim)
+
+
 
 if __name__ == "__main__":
     unittest.main()

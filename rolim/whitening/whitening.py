@@ -48,6 +48,8 @@ from rolim.tools.stats import sample_covar
 from rolim.tools.testing import assert_tensor_eq
 from rolim.settings import WHITEN_REG_EPS
 
+MSE = torch.nn.MSELoss()
+
 def whiten(vectors: Tensor, 
            reg_eps: float = WHITEN_REG_EPS,
            do_validate: bool=False) -> Tensor:
@@ -125,5 +127,28 @@ def whiten_naive(vectors: Tensor) -> Tensor:
     w = torch.linalg.cholesky(covar_inv)
     return w @ (vectors - mean)
     
+def compute_whiten_error(whiten_output: Tensor
+                         ) -> tuple[float, float]:
+    """
+    Compute the error of whitening with respect
+    to normalizing the mean and the covariance.
 
+    Arguments:
+    * whiten_output: a whitened matrix of column vectors.
 
+    Returns:
+    * mean_error: MSE between actual mean and expected mean (= zero vector).
+    * covar_error: MSE between actual sample covariance
+        and expected (=identity matrix) covariance.
+    """
+    dim = whiten_output.shape[0]
+    expected_mean = torch.zeros(torch.Size((dim, 1)))
+    expected_covar = torch.eye(dim)
+
+    output_mean = torch.mean(whiten_output, dim=1).reshape((dim, 1))
+    output_covar = sample_covar(whiten_output)
+
+    mean_mse = MSE(output_mean, expected_mean).item()
+    covar_mse = MSE(output_covar, expected_covar).item()
+
+    return (mean_mse, covar_mse)
