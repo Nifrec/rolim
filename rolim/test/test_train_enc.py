@@ -39,6 +39,7 @@ from torch import Tensor
 
 # Local imports:
 from rolim.encoder.train_enc import pairwise_mse, train_encoder_distance
+from rolim.tools.testing import assert_tensor_eq
 
 class PairWiseMSETestCase(unittest.TestCase):
     """
@@ -56,9 +57,9 @@ class PairWiseMSETestCase(unittest.TestCase):
            [1, 0, 0],
            [0, 0, 1]], # Pair 3 loss: 2
            dtype=torch.float)
-       expected = torch.tensor([1+0.25+2], dtype=torch.float)
+       expected = torch.tensor((1/3)*(1+0.25+2), dtype=torch.float)
        output = pairwise_mse(inp)
-       torch.testing.assert_allclose(output, expected)
+       assert_tensor_eq(expected, output)
     
 
 if __name__ == "__main__":
