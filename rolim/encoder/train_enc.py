@@ -37,6 +37,7 @@ Functions to:
 # Library imports:
 import torch
 from torch import Tensor
+import torch.nn as nn
 
 # Local imports:
 from rolim.networks.architectures import AtariCNN
@@ -127,7 +128,18 @@ def pairwise_mse(batch: Tensor) -> Tensor:
         Consecutive entries are considered pairs.
 
     Returns:
-    * Mean squared Euclidean distance between the vectors in each pair.
+    * Mean squared Euclidean distance between the vectors in each pair,
+        as 0-dimensional Tensor.
     """
-    raise NotImplementedError("TODO: write testcase first!")
-
+    num_entries = batch.shape[0]
+    even_indices = torch.arange(0, num_entries, 2)
+    odd_indices = torch.arange(1, num_entries, 2)
+    even_entries = torch.index_select(batch, dim=0, index=even_indices)
+    odd_entries = torch.index_select(batch, dim=0, index = odd_indices)
+    
+    print(even_entries, odd_entries)
+    assert (even_entries.shape == odd_entries.shape)
+    print(torch.pow(even_entries - odd_entries, 2))
+    loss = torch.sum(torch.pow(even_entries-odd_entries, 2))/(num_entries//2)
+    # loss = nn.functional.mse_loss(even_entries, odd_entries)
+    return loss
