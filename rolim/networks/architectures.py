@@ -69,25 +69,41 @@ class AtariCNN(nn.Module):
         """
         super().__init__()
         # Hardcoded parameters are taken from the paper by Mnih et al.
-        self._layers = nn.Sequential(
-                nn.Conv2d(in_channels = channels,
-                          out_channels=16,
+        conv1 = nn.Conv2d(in_channels = channels,
+                          out_channels=16*channels, # 16 filters
                           kernel_size = 8,
                           stride = 4,
-                          padding=0),
-                nn.ReLU(),
-                nn.Conv2d(in_channels=16 * channels,
-                          out_channels=32,
+                          padding=0)
+        
+        conv2 = nn.Conv2d(in_channels = conv1.out_channels,
+                          out_channels=32*conv1.out_channels, # 32 filters
                           kernel_size = 4,
-                          stride=2,
-                          padding=0),
-                nn.ReLU(),
-                nn.Flatten(),
-                nn.Linear(in_features=256, out_features=out_size)
-                )
+                          stride = 2,
+                          padding=0)
 
-        def forward(self, t: Tensor) -> Tensor:
-            return self._layers(t)
+        conv1_out_size = conv_output_size(conv1, height, width)
+        conv2_out_size = conv_output_size(conv2, conv1_out_size[0],
+                                          conv1_out_size[1])
+
+        # Total number of output features (tensor elements)
+        # of the 2 convolutional layers for each image in the batch.
+        # Just height*width*channels
+        conv_out_features = conv2_out_size[0]*conv2_out_size[1]\
+                *conv2.out_channels
+        print("Conv2 out:",
+              conv2_out_size, "Conv1 out:", conv1_out_size, "Linear in: ", conv_out_features)
+        
+        linear = nn.Linear(in_features=conv_out_features,
+                           out_features=out_size)
+        print(linear)
+
+        self._layers = nn.Sequential(conv1, nn.ReLU(),
+                                     conv2, nn.ReLU(),
+                                     nn.Flatten(),
+                                     linear)
+
+    def forward(self, t: Tensor) -> Tensor:
+        return self._layers(t)
 
 def conv_output_size(conv: nn.Conv2d, height: int, width:int
                      ) -> tuple[int, int]:

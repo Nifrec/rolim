@@ -39,7 +39,7 @@ from torch import Tensor
 import torch.nn as nn
 
 # Local imports:
-from rolim.networks.architectures import conv_output_size
+from rolim.networks.architectures import AtariCNN, conv_output_size
 
 
 class ConvOutputSizeTestCase(unittest.TestCase):
@@ -95,12 +95,53 @@ class ConvOutputSizeTestCase(unittest.TestCase):
         prediction = conv_output_size(conv, height, width)
         self.assertTupleEqual(tuple(out_image.shape[-2:]), prediction)
 
-def generate_random_image(height: int, width: int) -> Tensor:
+class AtariCNNTestCase(unittest.TestCase):
+    """
+    Simple tests to ensure the AtariCNN works with respect to tensor
+    shapes etc.
+    """
+
+    def test_output_shape(self):
+        """
+        Output should preserve batch size,
+        but have only 1 other dimension of the specified size.
+        """
+        num_images = 5
+        height = 40
+        width = 50
+        out_size = 32
+        batch = torch.cat([generate_random_image(height, width, num_images)])
+        net = AtariCNN(1, height, width, out_size)
+        output = net(batch)
+        expected = (num_images, out_size)
+        self.assertTupleEqual(tuple(output.shape), expected)
+
+    def test_multiple_channels(self):
+        """
+        Output should preserve batch size,
+        but flatten the channels, height and width.
+        """
+        num_images = 5
+        num_channels = 10
+        height = 31
+        width = 31
+        out_size = 40
+        batch = torch.cat([generate_random_image(
+            height, width, num_images, num_channels)])
+        net = AtariCNN(num_channels, height, width, out_size)
+        output = net(batch)
+        expected = (num_images, out_size)
+        self.assertTupleEqual(tuple(output.shape), expected)
+
+def generate_random_image(height: int, width: int,
+                          batch_size : int = 1,
+                          num_channels: int = 1) -> Tensor:
     """
     Generate a random image of the specified dimensions.
-    Return an image of shape `(1, 1, height, width)`.
+    Return an image of shape `(batch_size, num_channels, height, width)`.
     """
-    return torch.rand((1, 1, height, width), dtype=torch.float)
+    shape = (batch_size, num_channels, height, width)
+    return torch.rand(shape, dtype=torch.float)
     
 if __name__ == "__main__":
     unittest.main()
