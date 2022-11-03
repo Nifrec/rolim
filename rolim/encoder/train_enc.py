@@ -137,9 +137,5 @@ def pairwise_mse(batch: Tensor) -> Tensor:
     even_entries = torch.index_select(batch, dim=0, index=even_indices)
     odd_entries = torch.index_select(batch, dim=0, index = odd_indices)
     
-    print(even_entries, odd_entries)
-    assert (even_entries.shape == odd_entries.shape)
-    print(torch.pow(even_entries - odd_entries, 2))
     loss = torch.sum(torch.pow(even_entries-odd_entries, 2))/(num_entries//2)
-    # loss = nn.functional.mse_loss(even_entries, odd_entries)
     return loss
