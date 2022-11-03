@@ -68,6 +68,10 @@ class AtariCNN(nn.Module):
 
         """
         super().__init__()
+        self.__channels = channels
+        self.__height = height
+        self.__width = width
+
         # Hardcoded parameters are taken from the paper by Mnih et al.
         conv1 = nn.Conv2d(in_channels = channels,
                           out_channels=16*channels, # 16 filters
@@ -108,6 +112,28 @@ class AtariCNN(nn.Module):
             raise RuntimeError("Convolution not possible:"
                 "less than 0 elements after convolution layers.\n"
                 "Are the input images too small?")
+
+    @property
+    def channels(self) -> int:
+        """
+        Number of expected channels in input images.
+        """
+        return self.__channels
+
+    @property
+    def height(self) -> int:
+        """
+        Expected height of input images.
+        """
+        return self.__height
+
+    @property
+    def width(self) -> int:
+        """
+        Expected width of input images.
+        """
+        return self.__width
+
 
 def conv_output_size(conv: nn.Conv2d, height: int, width:int
                      ) -> tuple[int, int]:
