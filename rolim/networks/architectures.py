@@ -90,12 +90,10 @@ class AtariCNN(nn.Module):
         # Just height*width*channels
         conv_out_features = conv2_out_size[0]*conv2_out_size[1]\
                 *conv2.out_channels
-        print("Conv2 out:",
-              conv2_out_size, "Conv1 out:", conv1_out_size, "Linear in: ", conv_out_features)
-        
+        self.__check_output_possible(conv_out_features)
+
         linear = nn.Linear(in_features=conv_out_features,
                            out_features=out_size)
-        print(linear)
 
         self._layers = nn.Sequential(conv1, nn.ReLU(),
                                      conv2, nn.ReLU(),
@@ -104,6 +102,12 @@ class AtariCNN(nn.Module):
 
     def forward(self, t: Tensor) -> Tensor:
         return self._layers(t)
+
+    def __check_output_possible(self, conv_out_features: int):
+        if conv_out_features <= 0:
+            raise RuntimeError("Convolution not possible:"
+                "less than 0 elements after convolution layers.\n"
+                "Are the input images too small?")
 
 def conv_output_size(conv: nn.Conv2d, height: int, width:int
                      ) -> tuple[int, int]:
