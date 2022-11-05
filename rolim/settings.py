@@ -32,7 +32,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 Declarations of global constants.
 """
+import os
 
 # Default regularization constant to make a sample covariance matrix
 # better conditioned in the whitening transform.
 WHITEN_REG_EPS = 0.001
+
+# The path to the `rolim` directory, containing among others
+# this `settings.py` file.
+PROJECT_ROOT_DIR = os.getcwd()
+
+# Directory to store the CIFAR10 dataset images.
+CIFAR10_DIR = os.path.join(PROJECT_ROOT_DIR, "data", "cifar10")
+

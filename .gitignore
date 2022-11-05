@@ -3,3 +3,12 @@ __pycache__
 .python-version
 *.egg-info/*
 
+rolim/notebooks/data/cifar10/cifar-10-python.tar.gz
+rolim/notebooks/data/cifar10/cifar-10-batches-py/batches.meta
+rolim/notebooks/data/cifar10/cifar-10-batches-py/data_batch_1
+rolim/notebooks/data/cifar10/cifar-10-batches-py/data_batch_2
+rolim/notebooks/data/cifar10/cifar-10-batches-py/data_batch_3
+rolim/notebooks/data/cifar10/cifar-10-batches-py/data_batch_4
+rolim/notebooks/data/cifar10/cifar-10-batches-py/data_batch_5
+rolim/notebooks/data/cifar10/cifar-10-batches-py/readme.html
+rolim/notebooks/data/cifar10/cifar-10-batches-py/test_batch
