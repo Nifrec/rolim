@@ -32,18 +32,85 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 Functions to:
 * Train an encoder network on 1 batch of images.
-* Infer an encoding from an encoder network,
+* Infer an encoding from an encoder network.
+* Train an encoder on the CIFAR10 dataset.
 """
 # Library imports:
 import torch
 from torch import Tensor
 import torch.nn as nn
+from torch.utils.data import DataLoader
+from typing import Literal
 
 # Local imports:
 from rolim.networks.architectures import AtariCNN
+from rolim.settings import (CIFAR10_CHANNELS, CIFAR10_HEIGHT, 
+                            CIFAR10_LATENT_DIM, CIFAR10_NUM_BATCHES, 
+                            CIFAR10_WIDTH, CIFAR10_BATCH_SIZE, DEVICE,
+                            RNG)
 from rolim.whitening.whitening import whiten
+from rolim.encoder.pairwise_sampler import (
+        load_cifar_10_dataset, PairWiseBatchSampler)
 
-def train_encoder_distance(encode_net: AtariCNN, 
+TrainingMethod = Literal["distance", "decoder", "predictor"]
+def train_encoder(method: TrainingMethod,
+                  use_whitening: bool,
+                  run_checks: bool = False,
+                  num_batches: int = CIFAR10_NUM_BATCHES,
+                  batch_size: int = CIFAR10_BATCH_SIZE
+                  ) -> tuple[AtariCNN, list[float]]:
+    """
+    Train an `AtariCNN` on the CIFAR10 dataset.
+    Return the trained network and the losses per epoch.
+
+    Arguments:
+    * method: one of
+        - "distance": optimise the network to minimize the distance
+            between encodings related images (i.e., images of the same
+            class). 
+        - "decoder": optimise the network to minimize the error
+            in a decoder (i.e., make `decoder(encoder(image))`
+            as close to the input image as possible).
+        - "predictor": optimize the network to minimize the error
+            in a classifier network (i.e., make `classifier(encoder(image))`
+            return the class of the image.
+    * use_whitening: flag whether or not the whitening transform
+        must, during training, be applied directly to the output of the encoder.
+    * run_checks: flag whether to run assertions for tensor shapes.
+    * num_batches: number of batches of images to train on before the
+        training stops.
+    * batch_size: number of pairs of images in each minibatch.
+
+    Returns:
+    * encoder: trained convolutional network.
+    * losses: list containing the loss of each batch.
+    """
+    if method == "decoder":
+        raise NotImplementedError("Training with decoder not yet implemented")
+    elif method == "predictor":
+        raise NotImplementedError("Training with predictor not yet implemented")
+
+    torch.set_default_tensor_type(torch.cuda.FloatTensor)
+    encoder = AtariCNN(channels=CIFAR10_CHANNELS, height=CIFAR10_HEIGHT, 
+                       width=CIFAR10_WIDTH, out_size=CIFAR10_LATENT_DIM)
+    optimizer = torch.optim.Adam(params=encoder.parameters())
+    trainset, testset = load_cifar_10_dataset(download=True)
+    batch_sampler = PairWiseBatchSampler(trainset, RNG, batch_size=batch_size,
+                                         epoch_size=batch_size*num_batches)
+    dataloader = DataLoader(trainset, batch_sampler=batch_sampler)
+
+    losses: list[Tensor] = []
+    for batch_images, batch_labels in dataloader:
+        batch_images = batch_images.to(DEVICE) 
+        loss = _train_1_batch_distance_minimization(encoder, batch_images,
+                                                    use_whitening,
+                                                    optimizer, run_checks)
+        losses.append(loss)
+
+    losses_as_floats = [loss.item() for loss in losses]
+    return (encoder, losses_as_floats)
+
+def _train_1_batch_distance_minimization(encode_net: AtariCNN, 
                            batch: Tensor, 
                            use_whitening: bool,
                            optim: torch.optim.Optimizer,
@@ -85,14 +152,11 @@ def train_encoder_distance(encode_net: AtariCNN,
     if use_whitening:
         # whiten() expects a 2D matrix where the columns (2nd axis)
         # are distinct entries.
-        # Batch is a 4D Tensor where the first axis ranges over the
-        # distinct images.
-
-        # num_images=batch.shape[0]
-        batch_as_2d = torch.flatten(batch).T
-        # view_2d = encoded_batch.view(shape=torch.Size(num_images, -1))
-        whitened_encoding = whiten(batch_as_2d)
-        whitened_encoding = whitened_encoding.T.view_as(encoded_batch)
+        # The encoder outputs a vector of shape (batch_size, out_size).
+        # Here the *rows* are the distinct entries, so we need to
+        # transpose before and after taking the whitening transform.
+        whitened_encoding = whiten(encoded_batch.T)
+        whitened_encoding = whitened_encoding.T
         encoding = whitened_encoding
     else:
         encoding = encoded_batch
