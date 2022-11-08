@@ -71,6 +71,7 @@ class AtariCNN(nn.Module):
         self.__channels = channels
         self.__height = height
         self.__width = width
+        self.__out_size = out_size
 
         # Hardcoded parameters are taken from the paper by Mnih et al.
         conv1 = nn.Conv2d(in_channels = channels,
@@ -103,6 +104,12 @@ class AtariCNN(nn.Module):
                                      conv2, nn.ReLU(),
                                      nn.Flatten(),
                                      linear)
+    def __str__(self) -> str:
+        return (f"AtariCNN("
+              + f"{self.channels},"
+              + f"{self.height},"
+              + f"{self.width},"
+              + f"{self.out_size})")
 
     def forward(self, t: Tensor) -> Tensor:
         return self._layers(t)
@@ -133,6 +140,13 @@ class AtariCNN(nn.Module):
         Expected width of input images.
         """
         return self.__width
+
+    @property
+    def out_size(self) -> int:
+        """
+        Dimension of output vector.
+        """
+        return self.__out_size
 
 
 def conv_output_size(conv: nn.Conv2d, height: int, width:int
