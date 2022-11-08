@@ -52,6 +52,10 @@ CIFAR10_HEIGHT = 32
 CIFAR10_CHANNELS = 3
 # Dimension of the latent space representation for the CIFAR10-images-encoder.
 CIFAR10_LATENT_DIM = 32
+# Number of batches to train the encoder on (default value)
+CIFAR10_NUM_BATCHES = 3000
+# Number of pairs of images in each batch of encoder training (default value)
+CIFAR10_BATCH_SIZE = 10
 
 # Numpy random number generator used thoughout this project.
 # Could be used to fix the seed globally.
