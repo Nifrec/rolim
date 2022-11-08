@@ -33,6 +33,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 Declarations of global constants.
 """
 import os
+import numpy as np
+import torch
 
 # Default regularization constant to make a sample covariance matrix
 # better conditioned in the whitening transform.
@@ -43,5 +45,22 @@ WHITEN_REG_EPS = 0.001
 PROJECT_ROOT_DIR = os.getcwd()
 
 # Directory to store the CIFAR10 dataset images.
-CIFAR10_DIR = os.path.join(PROJECT_ROOT_DIR, "data", "cifar10")
+CIFAR10_DIR = os.path.join(PROJECT_ROOT_DIR, "data", "cifar_10")
+# CIFAR10 uses 32×32 RGB images, so:
+CIFAR10_WIDTH = 32
+CIFAR10_HEIGHT = 32
+CIFAR10_CHANNELS = 3
+# Dimension of the latent space representation for the CIFAR10-images-encoder.
+CIFAR10_LATENT_DIM = 32
 
+# Numpy random number generator used thoughout this project.
+# Could be used to fix the seed globally.
+# Note that also other random functions from the `random` and `torch`
+# libraries are used.
+RNG = np.random.default_rng()
+
+if torch.cuda.is_available(): 
+    DEVICE = torch.device("cuda")
+else: 
+    print("CUDA not found. Using the CPU for PyTorch tensors")
+    DEVICE = torch.device("cpu")
