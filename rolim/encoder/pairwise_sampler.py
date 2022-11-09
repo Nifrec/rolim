@@ -226,7 +226,30 @@ def get_indices_per_class(dataset: CIFAR10) -> list[list[int]]:
         output.append(np.where(targets == class_idx)[0])
     return output
 
+def get_n_images_each_class(n: int, dataset: CIFAR10
+                            ) -> list[list[Tensor]]:
+    """
+    Sample `n` random images for each class in `dataset.classes`.
 
+    Arguments:
+    * n: number of images per class to sample.
+    * dataset: dataset to sample images from.
+
+    Returns:
+    * list of `n` images for each class in `dataset.classes`.
+        The order of the presented classes matches the
+        order in `dataset.classes`.
+
+    NOTE: assumes that the dataset uses the `to_tensor` transform.
+    If not, it may return `np.ndarray`s instead of PyTorch tensors.
+    """
+    num_classes = len(dataset.classes)
+    pair_sampler = PairSampler(dataset, RNG, epoch_size = n*num_classes)
+    
+    output = [[pair_sampler.sample_from_class_label(label)
+               for _ in range(n)]
+              for label in dataset.classes]
+    return output
 
 
 
