@@ -65,13 +65,14 @@ class MSEMatrixTestCase(unittest.TestCase):
         x21 = embeddings_class_2[0, :]
         x22 = embeddings_class_2[1, :]
         
-        M11 = (1/1) + torch.sum((x11 - x12)**2)
-        M22 = (1/1) + torch.sum((x21 - x22)**2)
-        M12 = M21 = (1/4) \
-                + torch.sum((x11 - x21)**2) \
+        M11 = (1/1) * torch.sum((x11 - x12)**2)
+        M22 = (1/1) * torch.sum((x21 - x22)**2)
+        M12 = M21 = (1/4) * (
+                  torch.sum((x11 - x21)**2) \
                 + torch.sum((x12 - x21)**2) \
                 + torch.sum((x11 - x22)**2) \
                 + torch.sum((x12 - x22)**2)
+                )
 
         expected_M = torch.tensor([[M11, M12], [M21, M22]])
 
