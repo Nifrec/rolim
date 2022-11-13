@@ -36,6 +36,8 @@ given a set containing `n` embeddings for each of `m` classes.
 # Library imports:
 import torch
 from torch import Tensor
+import math
+import itertools
 
 # Local imports:
 
@@ -60,8 +62,64 @@ def compute_mse_heatmap(embeddings_per_class: list[Tensor]) -> Tensor:
     Returns:
     * `M`: a symmetric  matrix of shape `num_classes × num_classes`
         whose entries are as described above.
+
+    NOTE: the gradients for this computation are not tracked.
     """
-    raise NotImplementedError("TODO")
+    num_classes = len(embeddings_per_class)
+    num_emb_per_class = embeddings_per_class[0].shape[0]
+    emb_dim = embeddings_per_class[0].shape[1]
+    for embeddings in embeddings_per_class:
+        assert embeddings.shape == (num_emb_per_class, emb_dim)
+
+    # exp_num_pairs_diagonal = \binom{num_emb_per_class}{2}
+    # = num distinct pairs of images of same class.
+    exp_num_pairs_diagonal = (math.factorial(num_emb_per_class))// \
+        (2 * math.factorial(num_emb_per_class - 2))
+
+    # exp_num_pairs_off = number distinct pairs of one embedding
+    # class w, and an embedding from class z, where w!=z.
+    exp_num_pairs_off = num_emb_per_class**2
+
+
+
+    M = torch.zeros(size=(num_classes, num_classes),
+                    dtype=torch.float,
+                    requires_grad=False)
+
+    # Compute upper off-diagonal entries.
+    # Indices correspond to the math formula in `encoder_experiment.ipynb`.
+    for w in range(num_classes-1):
+        for z in range(w+1, num_classes):
+            assert w < z
+            num_pairs_seen = 0
+            all_pairs = itertools.product(range(num_emb_per_class),
+                                          range(num_emb_per_class))
+            for (i, j) in all_pairs: 
+                num_pairs_seen += 1
+                x_wi = embeddings_per_class[w][i,:]
+                x_zj = embeddings_per_class[z][j,:]
+                M[w, z] += torch.sum((x_wi - x_zj)**2)
+            assert num_pairs_seen == exp_num_pairs_off
+            M[w, z] = M[w,z] / num_pairs_seen
+
+
+    # Lower off-diagonal entries are symmetric with the upper ones!
+    M += M.clone().T
+
+    # Diagonal entries
+    for z in range(num_classes):
+        num_pairs_seen = 0
+        for i in range(num_emb_per_class - 1):
+            for j in range(i+1, num_emb_per_class):
+                assert i < j
+                num_pairs_seen += 1
+                x_zi = embeddings_per_class[z][i,:]
+                x_zj = embeddings_per_class[z][j,:]
+                M[z, z] += torch.sum((x_zi-x_zj)**2)
+        assert num_pairs_seen == exp_num_pairs_diagonal
+        M[z,z] = M[z,z] / num_pairs_seen
+
+    return M
 
 
 
