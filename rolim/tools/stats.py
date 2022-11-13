@@ -30,9 +30,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 --------------------------------------------------------------------------------
 *File content:*
 
-This is a template file for new source-code files
-in this project. 
-TODO: substitute this placeholder with actual description.
+Statistics-related auxiliary functions, such as
+computing the sample covariance of a set of vectors.
 """
 # Library imports:
 import torch
