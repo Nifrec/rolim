@@ -36,11 +36,18 @@ given a set containing `n` embeddings for each of `m` classes.
 # Library imports:
 import torch
 from torch import Tensor
+
+from typing import Optional, Any
 import math
 import itertools
+import numpy as np
 
-# Local imports:
-
+import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from matplotlib import cm
+from matplotlib.colors import Colormap
+from matplotlib.colorbar import Colorbar
 
 def compute_mse_heatmap(embeddings_per_class: list[Tensor]) -> Tensor:
     """
@@ -118,12 +125,105 @@ def compute_mse_heatmap(embeddings_per_class: list[Tensor]) -> Tensor:
 
     return M
 
+def plot_heatmap(heatmap: Tensor | np.ndarray,
+                 ax: Optional[Axes] = None,
+                 xtick_labels: Optional[list[str]] = None,
+                 ytick_labels: Optional[list[str]] = None,
+                 add_colorbar: bool = True,
+                 cmap: str | Colormap="plasma_r",
+                 imshow_kwargs: dict[str, Any] = {},
+
+                 ) -> tuple[Axes, Figure | None, Colorbar | None]:
+    """
+    Plot a heatmap using matplotlib.
+
+    Arguments:
+    * heatmap: matrix to visualize as a heatmap.
+    * ax: optional `Axes` instance to plot the heatmap on.
+
+    Returns:
+    * ax: `Axes` instance heatmap is plotted on.
+        If the input `ax` is not `None`,
+        this is the same as the input argument,
+        otherwise a new instance.
+    * fig: `Figure` in which the output `ax` resides.
+        This is `None` if an input `ax` is given.
+    """
+    if ax is None:
+        fig, ax = plt.subplots(nrows=1, ncols=1) #type: ignore
+        assert isinstance(ax, Axes)
+        assert isinstance(fig, Figure)
+    else:
+        fig = None
+
+    heatmap = __convert_heatmap_if_needed(heatmap)
+
+    num_rows, num_cols = heatmap.shape
+    __add_ticklabels(ax, num_rows, num_cols, xtick_labels, ytick_labels)    
+
+    image = ax.imshow(heatmap, cmap=cmap, **imshow_kwargs)
+
+    if add_colorbar:
+        colorbar = ax.figure.colorbar(image, ax=ax) #type: ignore
+    else:
+        colorbar = None
+    ax.set_xlabel("Class") 
+    ax.set_ylabel("Class") 
+
+    # Add numbers to cell to give the quantitative value,
+    # rather than only a colour.
+    __add_cell_values(heatmap, num_rows, num_cols, ax)
+
+    return (ax, fig, colorbar)
+
+def __convert_heatmap_if_needed(heatmap: Tensor | np.ndarray
+                                ) -> np.ndarray:
+    if isinstance(heatmap, Tensor):
+        heatmap = heatmap.cpu().numpy()
+    if len(heatmap.shape) != 2:
+        raise ValueError("Input heatmap must be a 2D matrix, but got "
+                         f"{len(heatmap.shape)} dimensions.")
+    assert (isinstance(heatmap, np.ndarray))
+    return heatmap
+
+def __add_ticklabels(ax: Axes, num_rows: int, num_cols: int,
+                     xtick_labels: Optional[list[str]],
+                     ytick_labels: Optional[list[str]]):
+    # The pywright linter thinks Axes don't have these methods.
+    # According to the matplotlib documentation they do...
+    ax.set_xticks(np.arange(num_cols))  #type: ignore
+    if xtick_labels is not None:
+        if len(xtick_labels) != num_cols:
+            raise ValueError("Number of xtick_labels given does not"
+                             " match the number of columns of the heatmap.")
+        ax.set_xticks(np.arange(num_cols))  #type: ignore
+        ax.set_xticklabels(xtick_labels, rotation=30, ha="right") #type: ignore
+
+    ax.set_yticks(np.arange(num_rows))  #type: ignore
+    if ytick_labels is not None:
+        if len(ytick_labels) != num_rows:
+            raise ValueError("Number of ytick_labels given does not"
+                             " match the number of rows of the heatmap.")
+        ax.set_yticklabels(ytick_labels)    #type: ignore
 
 
+def __add_cell_values(heatmap: np.ndarray, num_rows: int, num_cols: int,
+                      ax: Axes):
+    min_val = np.min(heatmap)
+    max_val = np.max(heatmap)
+    num_values = heatmap.size
+    assert(isinstance(num_values, int))
+    text_colors = cm.summer(np.linspace(0, 1, num_values)) #type: ignore
 
-
-
-
+    for row in range(num_rows):
+        for col in range(num_cols):
+            cell_value = heatmap[row, col] 
+            label=f"{cell_value:.1e}"
+            colour_idx = round(((cell_value - min_val)/(max_val-min_val)) 
+                               * (num_values-1))
+            ax.text(col, row, label, ha="center", va="center",
+                color=text_colors[colour_idx], rotation=30,
+                    fontsize="x-small")
 
 
 
