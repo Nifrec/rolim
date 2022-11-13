@@ -80,8 +80,6 @@ def compute_mse_heatmap(embeddings_per_class: list[Tensor]) -> Tensor:
     # class w, and an embedding from class z, where w!=z.
     exp_num_pairs_off = num_emb_per_class**2
 
-
-
     M = torch.zeros(size=(num_classes, num_classes),
                     dtype=torch.float,
                     requires_grad=False)
@@ -101,7 +99,6 @@ def compute_mse_heatmap(embeddings_per_class: list[Tensor]) -> Tensor:
                 M[w, z] += torch.sum((x_wi - x_zj)**2)
             assert num_pairs_seen == exp_num_pairs_off
             M[w, z] = M[w,z] / num_pairs_seen
-
 
     # Lower off-diagonal entries are symmetric with the upper ones!
     M += M.clone().T
