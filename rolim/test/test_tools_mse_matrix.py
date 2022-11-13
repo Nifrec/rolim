@@ -35,7 +35,6 @@ Testcases for rolim/tools/mse_matrix.py
 # Library imports:
 import unittest
 import torch
-from torch import Tensor
 
 # Local imports:
 from rolim.tools.mse_matrix import compute_mse_heatmap
