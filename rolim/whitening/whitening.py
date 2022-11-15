@@ -42,6 +42,7 @@ it is only used for computing the MSE for backpropagation.
 import torch
 from torch import Tensor
 from warnings import warn
+from rolim.tools.pairs import get_odd_even_vectors
 
 # Local imports:
 from rolim.tools.stats import sample_covar
@@ -152,3 +153,80 @@ def compute_whiten_error(whiten_output: Tensor
     covar_mse = MSE(output_covar, expected_covar).item()
 
     return (mean_mse, covar_mse)
+
+
+def dw_mse_loss(batch: Tensor) -> Tensor:
+    r"""
+    Given a batch of pairs of embeddings from an encoder network,
+    compute the difference-whitening mean-squared error
+    (DW-MSE).
+    If the inputs are N pairs of vectors
+        Z = [z_1, z_2, z_3, z_4, ..., z_{2N-1}, Z_{2N}]
+    then the DW-MSE loss is defined as:
+        L := (1/N) \sum_{i=1}^N (h_i - μ)^T Σ^{-1} (h_i - μ)
+    where
+        H := [h_1, h_2, ..., h_n]
+          = [z_1-z_2, z_3-z_4, ..., z_{2N-1} - z_{2N}]
+        μ := mean(h_1, h_2, ..., h_n)
+        Σ := sample_covariance(h_1, h_2, ..., h_n)
+
+    Arguments:
+    * batch: Tensor of shape `(2*N, dim)` where `N` is the number
+        of pairs of embeddings, and `dim` is the length of each
+        embedding-vector.
+
+    Returns:
+    * loss: 0-dimensional vector according to the formula above.
+    """
+    num_samples = batch.shape[0]
+    num_pairs = num_samples // 2
+    if num_samples % 2 != 0:
+        raise ValueError("Input batch must consists of pairs of vectors,"
+                         "but got odd number of vectors.")
+
+    odds, evens = get_odd_even_vectors(batch)
+    H = odds - evens
+    covar = sample_covar(H.T) # sample_covar expects column vectors
+    mean = torch.mean(H, dim=0)
+    
+    # torch.linalg.solve() is supposed to be faster and more numerically
+    # stable than torch.inv().
+    loss = (H - mean).T @ torch.linalg.solve(covar, 
+                                             (H - mean)@torch.eye(num_pairs))
+    loss = torch.sum(loss)
+    return loss
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
