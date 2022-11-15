@@ -112,58 +112,6 @@ class WhitenErrorTestCase(unittest.TestCase):
         mean_mse, covar_mse = compute_whiten_error(torch.ones((dim, dim)))
         self.assertAlmostEqual(covar_mse, 1.0 / dim)
 
-
-class DifferenceWhiteningMSETestCase(unittest.TestCase):
-    """
-    Testcases for the function `dw_mse_loss`.
-    """
-
-    def test_0_loss(self):
-        """
-        Corner case: the pairs are perfectly identical,
-        so the loss should be 0.
-        """
-        batch = torch.tensor([
-            [1, 1, 1],
-            [1, 1, 1],
-            [2, 2, 2],
-            [2, 2, 2],
-            [3, 3, 3],
-            [3, 3, 3]],
-            dtype=torch.float)
-        expected = torch.tensor(0, dtype=torch.float)
-        result = dw_mse_loss(batch)
-        assert_tensor_eq(expected, result)
-
-
-    def test_basic(self):
-        """
-        Very simple input that can be computed by hand.
-        """
-        batch = torch.tensor([
-            [1, 0],
-            [0, 1],
-            [.5, .1],
-            [0, 0]],
-            dtype = torch.float)
-        H = torch.tensor([
-            [1, -1],
-            [.5, .1]
-            ])
-        mean  = torch.tensor([.75, -0.45])
-        H_min_mean = (H - mean).reshape((-1, 1))
-        covar = (1 / (2-1)) * H_min_mean @ H_min_mean.T
-        expected = H_min_mean.T @ torch.linalg.inv(covar) @ H_min_mean
-        expected = expected[0] + expected[1]
-
-        result = dw_mse_loss(batch)
-
-        assert_tensor_eq(expected, result)
-
-
-
-
-
 if __name__ == "__main__":
     unittest.main()
 
