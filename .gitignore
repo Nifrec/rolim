@@ -2,6 +2,10 @@ __pycache__
 */__pycache__
 .python-version
 *.egg-info/*
+*.pt
+*.pickle
+rolim/notebooks/data
+rolim/notebooks/figures
 
 rolim/notebooks/data/cifar10/cifar-10-python.tar.gz
 rolim/notebooks/data/cifar10/cifar-10-batches-py/batches.meta
