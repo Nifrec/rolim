@@ -193,7 +193,7 @@ def dw_mse_loss(batch: Tensor) -> Tensor:
     # stable than torch.inv().
     loss = (H - mean).T @ torch.linalg.solve(covar, 
                                              (H - mean)@torch.eye(num_pairs))
-    loss = torch.sum(loss)
+    loss = (1 / num_pairs) * torch.sum(loss)
     return loss
 
 
