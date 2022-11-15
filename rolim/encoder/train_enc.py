@@ -48,6 +48,7 @@ from rolim.settings import (CIFAR10_CHANNELS, CIFAR10_HEIGHT,
                             CIFAR10_LATENT_DIM, CIFAR10_NUM_BATCHES, 
                             CIFAR10_WIDTH, CIFAR10_BATCH_SIZE, DEVICE,
                             RNG)
+from rolim.tools.pairs import get_odd_even_vectors
 from rolim.whitening.whitening import whiten
 from rolim.encoder.pairwise_sampler import (
         load_cifar_10_dataset, PairWiseBatchSampler)
@@ -196,10 +197,6 @@ def pairwise_mse(batch: Tensor) -> Tensor:
         as 0-dimensional Tensor.
     """
     num_entries = batch.shape[0]
-    even_indices = torch.arange(0, num_entries, 2)
-    odd_indices = torch.arange(1, num_entries, 2)
-    even_entries = torch.index_select(batch, dim=0, index=even_indices)
-    odd_entries = torch.index_select(batch, dim=0, index = odd_indices)
-    
+    odd_entries, even_entries = get_odd_even_vectors(batch) 
     loss = torch.sum(torch.pow(even_entries-odd_entries, 2))/(num_entries//2)
     return loss
