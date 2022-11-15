@@ -38,7 +38,7 @@ import torch
 from torch import Tensor
 
 # Local imports:
-from rolim.whitening.whitening import compute_whiten_error, whiten
+from rolim.whitening.whitening import compute_whiten_error, dw_mse_loss, whiten
 from rolim.tools.testing import assert_tensor_eq
 from rolim.tools.stats import sample_covar
 
@@ -113,6 +113,84 @@ class WhitenErrorTestCase(unittest.TestCase):
         self.assertAlmostEqual(covar_mse, 1.0 / dim)
 
 
+class DifferenceWhiteningMSETestCase(unittest.TestCase):
+    """
+    Testcases for the function `dw_mse_loss`.
+    """
+
+    def test_0_loss(self):
+        """
+        Corner case: the pairs are perfectly identical,
+        so the loss should be 0.
+        """
+        batch = torch.tensor([
+            [1, 1, 1],
+            [1, 1, 1],
+            [2, 2, 2],
+            [2, 2, 2],
+            [3, 3, 3],
+            [3, 3, 3]],
+            dtype=torch.float)
+        expected = torch.tensor(0, dtype=torch.float)
+        result = dw_mse_loss(batch)
+        assert_tensor_eq(expected, result)
+
+
+    def test_basic(self):
+        """
+        Very simple input that can be computed by hand.
+        """
+        batch = torch.tensor([
+            [1, 0],
+            [0, 1],
+            [.5, .1],
+            [0, 0]],
+            dtype = torch.float)
+        H = torch.tensor([
+            [1, -1],
+            [.5, .1]
+            ])
+        mean  = torch.tensor([.75, -0.45])
+        H_min_mean = (H - mean).reshape((-1, 1))
+        covar = (1 / (2-1)) * H_min_mean @ H_min_mean.T
+        expected = H_min_mean.T @ torch.linalg.inv(covar) @ H_min_mean
+        expected = expected[0] + expected[1]
+
+        result = dw_mse_loss(batch)
+
+        assert_tensor_eq(expected, result)
+
+
+
+
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
