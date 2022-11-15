@@ -38,7 +38,7 @@ import torch
 from torch import Tensor
 
 # Local imports:
-from rolim.encoder.train_enc import pairwise_mse, train_encoder_distance
+from rolim.encoder.train_enc import pairwise_mse
 from rolim.tools.testing import assert_tensor_eq
 
 class PairWiseMSETestCase(unittest.TestCase):
