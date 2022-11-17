@@ -44,6 +44,10 @@ WHITEN_REG_EPS = 0.001
 # this `settings.py` file.
 PROJECT_ROOT_DIR = os.getcwd()
 
+# Directory for storing the results of performing multiple
+# runs of training and evaluating an encoder.
+MULT_RUNS_DIR = os.path.join(PROJECT_ROOT_DIR, "encoder", "runs")
+
 # Directory to store the CIFAR10 dataset images.
 CIFAR10_DIR = os.path.join(PROJECT_ROOT_DIR, "data", "cifar_10")
 # CIFAR10 uses 32×32 RGB images, so:
