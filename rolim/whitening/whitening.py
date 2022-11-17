@@ -191,8 +191,10 @@ def dw_mse_loss(batch: Tensor) -> Tensor:
     
     # torch.linalg.solve() is supposed to be faster and more numerically
     # stable than torch.inv().
-    loss = (H - mean).T @ torch.linalg.solve(covar, 
-                                             (H - mean)@torch.eye(num_pairs))
+    loss = (H - mean) @ torch.linalg.solve(covar, 
+                                             (H - mean).T@torch.eye(num_pairs))
+    assert(len(loss) == num_pairs)
+
     loss = (1 / num_pairs) * torch.sum(loss)
     return loss
 
