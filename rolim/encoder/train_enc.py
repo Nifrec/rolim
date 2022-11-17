@@ -40,22 +40,24 @@ import torch
 from torch import Tensor
 import torch.nn as nn
 from torch.utils.data import DataLoader
+import torchvision as vision
+from torchvision.transforms.functional import to_tensor
 from typing import Literal
 
 # Local imports:
 from rolim.networks.architectures import AtariCNN
-from rolim.settings import (CIFAR10_CHANNELS, CIFAR10_HEIGHT, 
+from rolim.settings import (CIFAR10_CHANNELS, CIFAR10_DIR, CIFAR10_HEIGHT, 
                             CIFAR10_LATENT_DIM, CIFAR10_NUM_BATCHES, 
                             CIFAR10_WIDTH, CIFAR10_BATCH_SIZE, DEVICE,
                             RNG)
 from rolim.tools.pairs import get_odd_even_vectors
-from rolim.whitening.whitening import whiten
+from rolim.whitening.whitening import dw_mse_loss, whiten
 from rolim.encoder.pairwise_sampler import (
         load_cifar_10_dataset, PairWiseBatchSampler)
 
 TrainingMethod = Literal["distance", "decoder", "predictor"]
 def train_encoder(method: TrainingMethod,
-                  use_whitening: bool,
+                  distance_loss: Literal["MSE", "W-MSE", "DW-MSE"],
                   run_checks: bool = False,
                   num_batches: int = CIFAR10_NUM_BATCHES,
                   batch_size: int = CIFAR10_BATCH_SIZE
@@ -75,8 +77,14 @@ def train_encoder(method: TrainingMethod,
         - "predictor": optimize the network to minimize the error
             in a classifier network (i.e., make `classifier(encoder(image))`
             return the class of the image.
-    * use_whitening: flag whether or not the whitening transform
-        must, during training, be applied directly to the output of the encoder.
+    * loss: indication which loss function should be used,
+        in case `method` is `"distance"`:
+        * MSE: sum of squared distances between vectors of the same pair.
+        * W-MSE: same as MSE, but with the Whitening Transform applied to
+            the batch AFTER encoding BEFORE computing the loss.
+        * DW-MSE: same as MSE, but normalize the pair-wise difference
+            vectors by subtracting the mean difference-vector
+            and multiplying by the inverse covariance matrix.
     * run_checks: flag whether to run assertions for tensor shapes.
     * num_batches: number of batches of images to train on before the
         training stops.
@@ -95,7 +103,8 @@ def train_encoder(method: TrainingMethod,
     encoder = AtariCNN(channels=CIFAR10_CHANNELS, height=CIFAR10_HEIGHT, 
                        width=CIFAR10_WIDTH, out_size=CIFAR10_LATENT_DIM)
     optimizer = torch.optim.Adam(params=encoder.parameters())
-    trainset, testset = load_cifar_10_dataset(download=True)
+    trainset = vision.datasets.CIFAR10(root=CIFAR10_DIR, train=True, 
+                                       download=True, transform=to_tensor)
     batch_sampler = PairWiseBatchSampler(trainset, RNG, batch_size=batch_size,
                                          epoch_size=batch_size*num_batches)
     dataloader = DataLoader(trainset, batch_sampler=batch_sampler)
@@ -104,7 +113,7 @@ def train_encoder(method: TrainingMethod,
     for batch_images, batch_labels in dataloader:
         batch_images = batch_images.to(DEVICE) 
         loss = _train_1_batch_distance_minimization(encoder, batch_images,
-                                                    use_whitening,
+                                                    distance_loss,
                                                     optimizer, run_checks)
         losses.append(loss)
 
@@ -113,7 +122,7 @@ def train_encoder(method: TrainingMethod,
 
 def _train_1_batch_distance_minimization(encode_net: AtariCNN, 
                            batch: Tensor, 
-                           use_whitening: bool,
+                           loss_fun: Literal["MSE", "W-MSE", "DW-MSE"],
                            optim: torch.optim.Optimizer,
                            run_checks: bool=True) -> Tensor:
     """
@@ -134,10 +143,13 @@ def _train_1_batch_distance_minimization(encode_net: AtariCNN,
         The images that are pairs are assumed to be directly after each other
         (i.e., `batch[0:], batch[1:]` is the first pair,
         `batch[2:], batch[3:]` the second, and so on).
-    * use_whitening: flag whether the compose the encoder with
-        a Whitening Transform before taken the loss.
-        This passes the output of the encoder (AFTER encoding)
-        though the Whitening Transform, BEFORE computing the loss.
+    * loss_fun: indication which loss function should be used.
+        * MSE: sum of squared distances between vectors of the same pair.
+        * W-MSE: same as MSE, but with the Whitening Transform applied to
+            the batch AFTER encoding BEFORE computing the loss.
+        * DW-MSE: same as MSE, but normalize the pair-wise difference
+            vectors by subtracting the mean difference-vector
+            and multiplying by the inverse covariance matrix.
     * optim: torch.optim.Optimizer, optimizer to use the gradients
         to update the `encode_net`.
     * run_checks: flag whether or not to check for dimension compatibility.
@@ -150,7 +162,9 @@ def _train_1_batch_distance_minimization(encode_net: AtariCNN,
     optim.zero_grad()
     
     encoded_batch = encode(encode_net, batch, run_checks)
-    if use_whitening:
+    if loss_fun == "DW-MSE":
+        loss = dw_mse_loss(encoded_batch)
+    elif loss_fun == "W-MSE":
         # whiten() expects a 2D matrix where the columns (2nd axis)
         # are distinct entries.
         # The encoder outputs a vector of shape (batch_size, out_size).
@@ -159,10 +173,11 @@ def _train_1_batch_distance_minimization(encode_net: AtariCNN,
         whitened_encoding = whiten(encoded_batch.T)
         whitened_encoding = whitened_encoding.T
         encoding = whitened_encoding
+        loss = pairwise_mse(encoding)
     else:
         encoding = encoded_batch
+        loss = pairwise_mse(encoding)
 
-    loss = pairwise_mse(encoding)
     loss.backward()
     optim.step()
     return loss
