@@ -6,6 +6,23 @@ by Alexander Ermolov and Nice Sebe (2020).
 
 ## Overview
 
+### Most interesting
+* `rolim/encoder/multiple_runs.py` contains functions implementing the
+    main experiment. These functions work in 2 phases:
+    - The first function `train_enc_multiiple_runs`
+        trains multiple encoders in parallel, evaluates them on the test set
+        (makes error heatmap and t-SNE embeddings), and stores all
+        results to disk. The implementation is parallelized.
+    - The second function `aggregate_results` can then be used
+        to read the results, make a multi-figure t-SNE plot,
+        and aggregated heatmaps. These are also stored to disk.
+* `rolim/notebooks/encoder_experiment.ipynb` contains single-run
+    versions of the experiments used to train an encoder,
+    including visualizations of the results
+    (this notebook was created before the ideas from it were
+    generalized to the multi-run script).
+
+### Other files of interest
 * `rolim/notebooks/whitening.ipynb` explores the Whitening
     Transform, Cholesky decomposition, and performs
     a small empirical experiment to compare 2 different implementation
@@ -13,11 +30,30 @@ by Alexander Ermolov and Nice Sebe (2020).
 * `rolim/noteboos/cifar_10.ipynb` was an experimental approach to finding
     out how to iterate ove random pairs of images of the same
     class in the CIFAR10 dataset.
-    This resulted in the neat version of the code in `rolim/encoder/pairwise_sampler.py`.
+    This resulted in the neat version of the code in 
+    `rolim/encoder/pairwise_sampler.py`.
 * Unit-tests are collected in `rolim/test`.
     Most functions have at least 1 testcase.
 * `rolim/networks/architectures.py` contains the definitions
     of Neural Network Architectures.
 * `rolim/encoder/` contains functions for training the encoder-network,
     as well as encoder-specific experiments.
+* `rolim/tools/` contains several files of helper functions.
 
+## Requirements
+The file `rolim/tools/libraries.py` imports all required libraries
+and print their versions, so it is a simple tool to verify the installation.
+This project has been tested with libraries:
+* python:       3.10.6
+* torch:        1.12.1+cu102
+* torchvision:  0.13.1+cu102
+* numpy:        1.23.4
+* sklearn:      1.1.3
+* matplotlib:   3.6.1
+* pandas:       1.5.1
+Other versions may also be compatible,
+but have not been tested.
+
+## Notes/potential bugs
+* The code may accidentally try to store tensors on a GPU
+    even when specified differently in `settings.py`.
