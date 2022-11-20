@@ -42,9 +42,8 @@ from torch import Tensor
 def get_timestamp() -> str:
     return time.strftime("%Y-%m-%d___%H-%M")
 
-def nested_tensors_to_np(tensors: list[list[Tensor]]) -> list[list[np.ndarray]]:
-    output = [[tensor.cpu().numpy() for tensor in nested_list]
-              for nested_list in tensors]
+def nested_tensors_to_np(tensors: list[Tensor]) -> list[np.ndarray]:
+    output = [tensor.cpu().numpy() for tensor in tensors]
     return output
 
 def jitter_data(rng: np.random.Generator, 
