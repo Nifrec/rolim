@@ -67,6 +67,9 @@ CIFAR10_BATCH_SIZE = 10
 # libraries are used.
 RNG = np.random.default_rng()
 
+# This is currently the default value that sklearn uses.
+TSNE_DEFAULT_PERPLEXITY = 30.0
+
 if torch.cuda.is_available(): 
     DEVICE = torch.device("cuda")
 else: 
