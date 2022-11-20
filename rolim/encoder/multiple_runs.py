@@ -40,6 +40,7 @@ import torch
 from torch import Tensor
 import torch.nn as nn
 import torchvision as vision
+from torchvision.datasets import CIFAR10
 from torchvision.transforms.functional import to_tensor
 from torch.utils.data import DataLoader
 
@@ -167,14 +168,6 @@ def train_enc_multiple_runs(
                               join=False) for job in jobs]
     for proc in procs:
         proc.join()
-    # To ensure GPU memory is freed after each run, kill the worker
-    # process and create a new one for each run.
-    # pool = multiprocessing.Pool(processes=num_workers,
-    #                             initializer=__worker_setup,
-    #                             maxtasksperchild=1)
-    # print(pool.map(__perform_run, jobs))
-    # pool.close()
-    # pool.join()
     return save_dir
 
 def __worker_setup():
@@ -211,10 +204,6 @@ def __perform_run(i:int, job: WorkerJob):
 
     testset = vision.datasets.CIFAR10(root=CIFAR10_DIR, train=False, 
                                       download=False, transform=to_tensor)
-    # batch_sampler = PairWiseBatchSampler(testset, RNG, batch_size=batch_size,
-    #                                      epoch_size=batch_size*num_batches)
-    # testset_loader = DataLoader(testset, batch_sampler=batch_sampler)
-
     print(f"Run {run_num} finished training; starting test set evaluation")
 
     test_images = get_n_images_each_class(test_set_batch, testset)
@@ -227,27 +216,8 @@ def __perform_run(i:int, job: WorkerJob):
         for embedding in test_embeddings:
             embedding.requires_grad_(False)
 
-    num_embeddings = sum(class_embeddings.shape[0] for
-                         class_embeddings in test_embeddings)
-    assert num_embeddings ==test_set_batch*len(testset.classes) 
-    if num_embeddings <= TSNE_DEFAULT_PERPLEXITY:
-        perplexity = num_embeddings-1
-        warnings.warn("Sample size too small for default TSNE perplexity.\n"
-                      f"Using perplexity {perplexity} instead.")
-    else:
-        perplexity = TSNE_DEFAULT_PERPLEXITY
-
-    tsne = TSNE(n_components=2,
-            learning_rate="auto",
-            init="pca",
-            # Perplexity must be less than the number of samples.
-            perplexity=perplexity,
-            verbose=0)
-
-    test_embeddings_np = nested_tensors_to_np(test_embeddings)
-    all_encodings = np.concatenate(test_embeddings_np, axis=0)
-    tsne_output = tsne.fit_transform(all_encodings)
-
+    tsne_output = __make_tsne_embeddings(testset, test_set_batch, 
+                                          test_embeddings)
     with torch.no_grad():
         heatmap = compute_mse_heatmap(test_embeddings)
 
@@ -259,6 +229,31 @@ def __perform_run(i:int, job: WorkerJob):
     __save_embeddings(test_embeddings, save_dir, run_name)
     __save_tsne_embeddings(tsne_output, save_dir, run_name)
     __save_heatmap(heatmap, save_dir, run_name)
+
+def __make_tsne_embeddings(testset: CIFAR10,
+                           test_set_batch: int,
+                           test_embeddings: list[Tensor]) -> np.ndarray:
+    # Perplexity must be less than the number of samples.
+    num_embeddings = sum(class_embeddings.shape[0] for
+                         class_embeddings in test_embeddings)
+    assert num_embeddings == test_set_batch*len(testset.classes), \
+            "Different number of sampled embeddings than expected."
+    if num_embeddings <= TSNE_DEFAULT_PERPLEXITY:
+        perplexity = num_embeddings-1
+        warnings.warn("Sample size too small for default TSNE perplexity.\n"
+                      f"Using perplexity {perplexity} instead.")
+    else:
+        perplexity = TSNE_DEFAULT_PERPLEXITY
+
+    tsne = TSNE(n_components=2,
+            learning_rate="auto",
+            init="pca",
+            perplexity=perplexity,
+            verbose=0)
+
+    test_embeddings_np = nested_tensors_to_np(test_embeddings)
+    all_encodings = np.concatenate(test_embeddings_np, axis=0)
+    return tsne.fit_transform(all_encodings)
 
 def __save_losses(losses: list[float], run_root_dir: str, run_name: str):
     filename = os.path.join(run_root_dir, 
