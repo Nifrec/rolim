@@ -104,7 +104,7 @@ def train_encoder(method: TrainingMethod,
                        width=CIFAR10_WIDTH, out_size=CIFAR10_LATENT_DIM)
     optimizer = torch.optim.Adam(params=encoder.parameters())
     trainset = vision.datasets.CIFAR10(root=CIFAR10_DIR, train=True, 
-                                       download=True, transform=to_tensor)
+                                       download=False, transform=to_tensor)
     batch_sampler = PairWiseBatchSampler(trainset, RNG, batch_size=batch_size,
                                          epoch_size=batch_size*num_batches)
     dataloader = DataLoader(trainset, batch_sampler=batch_sampler)
