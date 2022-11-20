@@ -52,13 +52,16 @@ from collections import namedtuple
 import enum
 import os
 import json
+import math
 from sklearn.manifold import TSNE
 import numpy as np
 import warnings
+import matplotlib.pyplot as plt
 
 # Local imports:
 from rolim.networks.architectures import AtariCNN
-from rolim.settings import (CIFAR10_DIR, MULT_RUNS_DIR, RNG, DEVICE, TSNE_DEFAULT_PERPLEXITY)
+from rolim.settings import (CIFAR10_CLASSES, CIFAR10_DIR, MULT_RUNS_DIR, RNG, DEVICE, 
+                            TSNE_DEFAULT_PERPLEXITY)
 from rolim.encoder.pairwise_sampler import (PairWiseBatchSampler,
                                             get_n_images_each_class)
 from rolim.encoder.train_enc import train_encoder
@@ -82,6 +85,7 @@ class SubdirNames(enum.Enum):
     
 
 PARAMETERS_FILENAME = "parameters.json"
+TSNE_PLOT_FILENAME  = "tsne_plots.pdf"
 
 def train_enc_multiple_runs(
                   num_runs: int,
@@ -203,7 +207,7 @@ def __perform_run(i:int, job: WorkerJob):
                                     batch_size=batch_size)
 
     testset = vision.datasets.CIFAR10(root=CIFAR10_DIR, train=False, 
-                                      download=False, transform=to_tensor)
+                                      download=True, transform=to_tensor)
     print(f"Run {run_num} finished training; starting test set evaluation")
 
     test_images = get_n_images_each_class(test_set_batch, testset)
@@ -318,9 +322,79 @@ def perform_test_execution():
                                        root_dir = os.path.join(MULT_RUNS_DIR,
                                                            "test_executions"))
 
+def aggregate_results(save_dir: str,
+                      tsne_plots_num_cols: int,
+                      tsne_apply_jitter: bool)
+    """
+    Load the output of `train_enc_multiple_runs` from disk,
+    and make:
+    * A plot of the learning curves (losses), averaged out over the
+        different runs, with smoothing and confidence bounds.
+    * A multiple-figures plot of the t-SNE embeddings of each run.
+    * A heatmap-plot of the mean values of the heatmaps.
+    * A heatmap-plot of the standard deviations of the heatmaps.
+    These outputs will be saved in the directory `save_dir`
+    as PDF files.
+
+    Arguments:
+    * save_dir: path to the `*.run` directory created by 
+        `train_enc_multiple_runs`, which contains the saved data.
+    * tsne_plots_num_cols: number of columns of figures in the
+        multiple-figure t-SNE plot. The number of rows will be
+        chosen automatically.
+    * tsne_apply_jitter: whether to add random noise to the
+        t-SNE plots (may help to view composition of clusters).
+
+    NOTE: it assumes that equally many predictions were made
+        for each of the CIFAR10 classes and that the t-SNE
+        outputs are stacked as a matrix.
+        So if there are C classes and N samples in total of dimension D,
+        then it is expected that the saved t-SNE .npy matrix has shape
+        (N, D), where the first C rows are embeddings of images of class 0,
+        the second C rows correspond to class 1, etc.
+    """
+    __make_tsne_mulitplot(save_dir, num_cols, apply_jitter)
+    
+    raise NotImplementedError("TODO")
+
+def __make_tsne_mulitplot(save_dir: str, num_cols: int,
+                          apply_jitter: bool):
+    tsne_embedddings_dir = os.path.join(save_dir,
+                                        SubdirNames.TSNE_EMBEDDINGS.value)
+    embeddingses = []
+    files = sorted(os.scandir(tsne_embedddings_dir),
+                   key=lambda x : x.name)
+    for file in files:
+        if file.name.endswith(".npy"):
+            embeddingses.append(np.load(file.path))
+
+
+    num_runs = len(embeddingses)
+    num_rows = int(math.ceil(num_runs / num_cols))
+    fig, axs = plt.subplots(nrows=num_rows, ncols=num_cols)
+    axs = axs.reshape((-1,))
+    for i in range(num_runs):
+        ax= axs[i]
+        embeddings = embeddingses[i]
+        if apply_jitter:
+            embeddings = jitter_data(RNG, 10, embeddings)
+        num_classes = len(CIFAR10_CLASSES)
+        embeddings_per_class = embeddings.shape[0] / num_classes
+        for j in range(num_classes):
+            label = CIFAR10_CLASSES[j]
+            # Pop first `embeddings_per_class` rows
+            class_embeddings = embeddings[:embeddings_per_class]
+            embeddings = embeddings[embeddings_per_class:]
+            ax.plot(class_embeddings[:, 0], class_embeddings[:, 1], "+", 
+                    label=label)
+    fig.savefig(os.path.join(save_dir, TSNE_PLOT_FILENAME))
+
+            
+            
 
 if __name__ == "__main__":
     perform_test_execution()
+
 
 
 
