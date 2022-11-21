@@ -36,6 +36,7 @@ Another function can then be used to aggregate the results
 into summarizing plots.
 """
 # Library imports:
+from numpy._typing import NDArray
 import torch
 from torch import Tensor
 import torch.nn as nn
@@ -47,7 +48,7 @@ from torch.utils.data import DataLoader
  # Provides same API as Python's `multiprocessing`
 import torch.multiprocessing as multiprocessing
 
-from typing import Literal, Optional
+from typing import Literal, Optional, Any, Callable, TypeVar
 from collections import namedtuple
 import enum
 import os
@@ -70,6 +71,7 @@ from rolim.tools.data import (get_timestamp,
                               jitter_data,
                               nested_tensors_to_np,
                               all_tensor_in_list_to_cpu)
+T = TypeVar("T")
 
 WorkerJob = namedtuple("WorkerJob",
                        ("loss_fun", "num_batches", "batch_size",
@@ -324,7 +326,7 @@ def perform_test_execution():
 
 def aggregate_results(save_dir: str,
                       tsne_plots_num_cols: int,
-                      tsne_apply_jitter: bool)
+                      tsne_apply_jitter: bool):
     """
     Load the output of `train_enc_multiple_runs` from disk,
     and make:
@@ -353,33 +355,51 @@ def aggregate_results(save_dir: str,
         (N, D), where the first C rows are embeddings of images of class 0,
         the second C rows correspond to class 1, etc.
     """
-    __make_tsne_mulitplot(save_dir, num_cols, apply_jitter)
+    params = __load_parameters(save_dir)
+    __make_tsne_mulitplot(save_dir, tsne_plots_num_cols, tsne_apply_jitter,
+                          params)
+    __plot_heatmaps(save_dir, params)
+    __plot_learning_curves(save_dir, params)
     
     raise NotImplementedError("TODO")
 
+def __load_parameters(save_dir: str) -> dict[str, Any]:
+    params_filename = os.path.join(save_dir, PARAMETERS_FILENAME)
+    with open(params_filename, "r") as f:
+        params = json.load(f)
+    return params
+
 def __make_tsne_mulitplot(save_dir: str, num_cols: int,
-                          apply_jitter: bool):
+                          apply_jitter: bool,
+                          params: dict[str, Any]):
     tsne_embedddings_dir = os.path.join(save_dir,
                                         SubdirNames.TSNE_EMBEDDINGS.value)
-    embeddingses = []
-    files = sorted(os.scandir(tsne_embedddings_dir),
-                   key=lambda x : x.name)
-    for file in files:
-        if file.name.endswith(".npy"):
-            embeddingses.append(np.load(file.path))
+    embeddingses = __load_files_ending_with(".npy", tsne_embedddings_dir,
+                                            np.load)
+
+    # embeddingses = []
+    # files = sorted(os.scandir(tsne_embedddings_dir),
+    #                key=lambda x : x.name)
+    # for file in files:
+    #     if file.name.endswith(".npy"):
+    #         embeddingses.append(np.load(file.path))
 
 
     num_runs = len(embeddingses)
     num_rows = int(math.ceil(num_runs / num_cols))
-    fig, axs = plt.subplots(nrows=num_rows, ncols=num_cols)
+    figsize = (5*num_cols, 5*num_rows)
+    fig, axs = plt.subplots(nrows=num_rows, ncols=num_cols, figsize=figsize)
     axs = axs.reshape((-1,))
+
     for i in range(num_runs):
         ax= axs[i]
         embeddings = embeddingses[i]
         if apply_jitter:
             embeddings = jitter_data(RNG, 10, embeddings)
         num_classes = len(CIFAR10_CLASSES)
-        embeddings_per_class = embeddings.shape[0] / num_classes
+        assert (embeddings.shape[0] % num_classes == 0), \
+                "Cannot evenly divide the embeddings over the image classes."
+        embeddings_per_class = embeddings.shape[0] // num_classes
         for j in range(num_classes):
             label = CIFAR10_CLASSES[j]
             # Pop first `embeddings_per_class` rows
@@ -387,13 +407,60 @@ def __make_tsne_mulitplot(save_dir: str, num_cols: int,
             embeddings = embeddings[embeddings_per_class:]
             ax.plot(class_embeddings[:, 0], class_embeddings[:, 1], "+", 
                     label=label)
-    fig.savefig(os.path.join(save_dir, TSNE_PLOT_FILENAME))
 
+    # No need to repeat the legend in each subfigure, in first is enough.
+    axs[0].legend()
+    title = f"t_SNE embeddings per run using {params['loss_fun']} loss"
+    fig.suptitle(title, weight="bold", size="xx-large")
+    filename = os.path.join(save_dir, TSNE_PLOT_FILENAME)
+    fig.savefig(filename) # type: ignore
+    print(f"Saved t-SNE multiplot as {filename}.")
+
+def __plot_learning_curves(save_dir: str, params: dict[str, Any]):
+    raise NotImplementedError("TODO")
+
+def __plot_heatmaps(save_dir: str, params: dict[str, Any]):
+    heatmaps_dir = os.path.join(save_dir, SubdirNames.HEATMAPS.value)
+    heatmaps = __load_files_ending_with(".pt", heatmaps_dir, torch.load)
+    stacked = torch.stack(heatmaps)
+    mean_heatmap = torch.mean(stacked, dim=0)
+    std_heatmap = torch.std(stacked, dim=0)
+    m_ax, m_fig, m_cb = plot_heatmap(mean_heatmap, 
+                                     xtick_labels=CIFAR10_CLASSES,
+                                     ytick_labels=CIFAR10_CLASSES)
+    m_fig.suptitle(f"Mean of pairwise MSE errors for {params['loss_fun']} loss",
+                   weight="bold", size="xx-large")
+    m_fig.tight_layout()
+    m_filename = os.path.join(save_dir, "heatmaps_mean.pdf")
+    m_fig.savefig(m_filename)
+    s_ax, s_fig, s_cb = plot_heatmap(std_heatmap, 
+                                     xtick_labels=CIFAR10_CLASSES,
+                                     ytick_labels=CIFAR10_CLASSES)
+    s_fig.suptitle("Standard deviation of pairwise MSE errors "
+                   "for {params['loss_fun']} loss",
+                   weight="bold", size="xx-large")
+    s_fig.tight_layout()
+    s_filename = os.path.join(save_dir, "heatmaps_std.pdf")
+    s_fig.savefig(s_filename)
+    print(f"Saved aggregated heatmaps as\n{m_filename}\nand\n{s_filename}")
             
-            
+def __load_files_ending_with(extension: str, directory: str,
+                             load_function: Callable[[str], T]
+                             ) -> list[T]:
+    output = []
+    files = sorted(os.scandir(directory),
+                   key=lambda x : x.name)
+    for file in files:
+        if file.name.endswith(extension):
+            output.append(load_function(file.path))
+    return output
 
 if __name__ == "__main__":
-    perform_test_execution()
+    # perform_test_execution()
+    testdir = "/home/nifrec/documents/master_2/sadrl/rolim"\
+              +"/rolim/encoder/runs/test_executions/example_run.run"
+    aggregate_results(testdir, tsne_plots_num_cols=2, tsne_apply_jitter=False)
+
 
 
 
