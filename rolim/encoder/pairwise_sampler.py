@@ -56,7 +56,7 @@ from torchvision.datasets import CIFAR10
 from torchvision.utils import make_grid
 from torchvision.transforms.functional import to_tensor
 # Local imports:
-from rolim.settings import CIFAR10_DIR, RNG
+from rolim.settings import CIFAR10_CLASSES, CIFAR10_DIR, CIFAR10_NUM_CLASSES, RNG
 
 def load_cifar_10_dataset(save_dir: str = CIFAR10_DIR,
                           download=False
@@ -209,6 +209,24 @@ class PairWiseBatchSampler(PairSampler):
         while budget >= self.batch_size:
             batch = [next(super_iterator) for _ in range(self.batch_size)]
             budget -= self.batch_size
+            yield batch
+
+class CorrelatedBatchSampler(PairWiseBatchSampler):
+    """
+    Same as `PairWiseBatchSampler`,
+    but each batch only contains pairs of the same class label.
+    The class of the batch is uniformly randomly chosen
+    for each batch.
+    """
+
+    def __iter__(self) -> Iterator[list[int]]:
+        budget = self.epoch_size
+        while budget >= self.batch_size:
+            class_idx = RNG.choice(CIFAR10_NUM_CLASSES)
+            # Note: batch_size are the number of **pairs**, hence the `2*`.
+            batch = [self.sample_from_class_idx(class_idx)
+                     for _ in range(2*self.batch_size)]
+            budget -= 2*self.batch_size
             yield batch
 
 def get_indices_per_class(dataset: CIFAR10) -> list[list[int]]:
