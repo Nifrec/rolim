@@ -207,8 +207,8 @@ class PairWiseBatchSampler(PairSampler):
         super_iterator = super().__iter__()
         budget = self.epoch_size
         while budget >= self.batch_size:
-            batch = [next(super_iterator) for _ in range(self.batch_size)]
-            budget -= self.batch_size
+            batch = [next(super_iterator) for _ in range(2*self.batch_size)]
+            budget -= 2*self.batch_size
             yield batch
 
 class CorrelatedBatchSampler(PairWiseBatchSampler):
