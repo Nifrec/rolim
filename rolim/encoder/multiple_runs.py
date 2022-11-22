@@ -417,6 +417,13 @@ def __make_tsne_mulitplot(save_dir: str, num_cols: int,
     print(f"Saved t-SNE multiplot as {filename}.")
 
 def __plot_learning_curves(save_dir: str, params: dict[str, Any]):
+    def unpickle(filename:str) -> Any:
+        with open(filename, "rb") as f:
+            output = pickle.load(filename)
+        return output
+    losses_dir = os.path.join(save_dir, SubdirNames.LOSSES.value)
+    losseses = __load_files_ending_with(".pickle", losses_dir,
+                                        unpickle)
     raise NotImplementedError("TODO")
 
 def __plot_heatmaps(save_dir: str, params: dict[str, Any]):
@@ -429,16 +436,16 @@ def __plot_heatmaps(save_dir: str, params: dict[str, Any]):
                                      xtick_labels=CIFAR10_CLASSES,
                                      ytick_labels=CIFAR10_CLASSES)
     m_fig.suptitle(f"Mean of pairwise MSE errors for {params['loss_fun']} loss",
-                   weight="bold", size="xx-large")
+                   weight="bold", size="large")
     m_fig.tight_layout()
     m_filename = os.path.join(save_dir, "heatmaps_mean.pdf")
     m_fig.savefig(m_filename)
     s_ax, s_fig, s_cb = plot_heatmap(std_heatmap, 
                                      xtick_labels=CIFAR10_CLASSES,
                                      ytick_labels=CIFAR10_CLASSES)
-    s_fig.suptitle("Standard deviation of pairwise MSE errors "
-                   "for {params['loss_fun']} loss",
-                   weight="bold", size="xx-large")
+    s_fig.suptitle(f"Standard deviation of pairwise MSE errors "
+                   f"for {params['loss_fun']} loss",
+                   weight="bold", size="large")
     s_fig.tight_layout()
     s_filename = os.path.join(save_dir, "heatmaps_std.pdf")
     s_fig.savefig(s_filename)
