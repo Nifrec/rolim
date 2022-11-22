@@ -40,6 +40,7 @@ import numpy as np
 import sklearn
 import matplotlib
 import pandas as pd
+import scipy
 
 def main():
     print("Found:",
@@ -49,6 +50,7 @@ def main():
           f"sklearn:{sklearn.__version__}",
           f"matplotlib:{matplotlib.__version__}",
           f"pandas:{pd.__version__}",
+          f"scipy:{scipy.__version__}",
           sep="\n")
 
 if __name__ == "__main__":

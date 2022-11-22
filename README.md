@@ -51,6 +51,7 @@ This project has been tested with libraries:
 * sklearn:      1.1.3
 * matplotlib:   3.6.1
 * pandas:       1.5.1
+* scipy:        1.9.3
 Other versions may also be compatible,
 but have not been tested.
 
