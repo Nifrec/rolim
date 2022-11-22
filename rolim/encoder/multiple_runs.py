@@ -55,6 +55,7 @@ import os
 import json
 import math
 from sklearn.manifold import TSNE
+from scipy.signal import savgol_filter
 import numpy as np
 import warnings
 import matplotlib.pyplot as plt
@@ -62,7 +63,8 @@ import matplotlib.pyplot as plt
 # Local imports:
 from rolim.networks.architectures import AtariCNN
 from rolim.settings import (CIFAR10_CLASSES, CIFAR10_DIR, MULT_RUNS_DIR, RNG, DEVICE, 
-                            TSNE_DEFAULT_PERPLEXITY)
+                            TSNE_DEFAULT_PERPLEXITY,
+                            REDOWNLOAD_DATASET)
 from rolim.encoder.pairwise_sampler import (PairWiseBatchSampler,
                                             get_n_images_each_class)
 from rolim.encoder.train_enc import train_encoder
@@ -88,6 +90,20 @@ class SubdirNames(enum.Enum):
 
 PARAMETERS_FILENAME = "parameters.json"
 TSNE_PLOT_FILENAME  = "tsne_plots.pdf"
+
+class PARAM_KEYS(enum.Enum):
+    NUM_RUNS = "num_runs"
+    LOSS_FUN = "loss_fun"
+    NUM_BATCHES	= "num_batches"
+    BATCH_SIZE = "batch_size"		
+    TEST_SET_BATCH = "test_set_batch"		
+    NUM_WORKERS = "num_workers"	
+    SAVE_DIR = "save_dir"
+    TIME = "time"	
+
+CURVE_LINE_COLOR = np.array((201, 42, 42), dtype=np.float_) / 255
+CURVE_FILL_COLOR = np.append(CURVE_LINE_COLOR, [128/255])
+SAVGOL_WINDOW = 25
 
 def train_enc_multiple_runs(
                   num_runs: int,
@@ -127,6 +143,7 @@ def train_enc_multiple_runs(
 
     Also make a JSON file `settings.json` in this new directory
     storing the parameters of the experiment.
+    See `PARAM_KEYS` for the keys of this dictionary. 
 
     Arguments:
     * loss_fun: indication which loss function should be used,
@@ -187,15 +204,15 @@ def __save_parameters(num_runs: int,
                       num_workers: Optional[int] = None,
                       save_dir: str = MULT_RUNS_DIR):
     parameters = {
-                  "num_runs": num_runs,
-                  "loss_fun":loss_fun,
-                  "num_batches":num_batches,
-                  "batch_size":batch_size,
-                  "test_set_batch":test_set_batch,
-                  "num_workers": num_workers,
-                  "save_dir":save_dir,
-                  "time": get_timestamp()
-                  }
+          PARAM_KEYS.NUM_RUNS.value:       num_runs,
+          PARAM_KEYS.LOSS_FUN.value:       loss_fun,
+          PARAM_KEYS.NUM_BATCHES.value:    num_batches,
+          PARAM_KEYS.BATCH_SIZE.value:     batch_size,
+          PARAM_KEYS.TEST_SET_BATCH.value: test_set_batch,
+          PARAM_KEYS.NUM_WORKERS.value:    num_workers,
+          PARAM_KEYS.SAVE_DIR.value:       save_dir,
+          PARAM_KEYS.TIME.value:           get_timestamp()
+    }
     filename = os.path.join(save_dir, PARAMETERS_FILENAME)
     with open(filename, "w") as f:
         json.dump(parameters, f)
@@ -209,7 +226,8 @@ def __perform_run(i:int, job: WorkerJob):
                                     batch_size=batch_size)
 
     testset = vision.datasets.CIFAR10(root=CIFAR10_DIR, train=False, 
-                                      download=True, transform=to_tensor)
+                                      download=REDOWNLOAD_DATASET, 
+                                      transform=to_tensor)
     print(f"Run {run_num} finished training; starting test set evaluation")
 
     test_images = get_n_images_each_class(test_set_batch, testset)
@@ -318,7 +336,7 @@ def perform_test_execution():
     save_dir = train_enc_multiple_runs(num_runs=2,
                                        loss_fun="MSE",
                                        batch_size=2,
-                                       num_batches=2,
+                                       num_batches=100,
                                        test_set_batch=2,
                                        num_workers=2,
                                        root_dir = os.path.join(MULT_RUNS_DIR,
@@ -360,8 +378,7 @@ def aggregate_results(save_dir: str,
                           params)
     __plot_heatmaps(save_dir, params)
     __plot_learning_curves(save_dir, params)
-    
-    raise NotImplementedError("TODO")
+    print("Finished aggregating data. Output has been saved to disk.")
 
 def __load_parameters(save_dir: str) -> dict[str, Any]:
     params_filename = os.path.join(save_dir, PARAMETERS_FILENAME)
@@ -376,14 +393,6 @@ def __make_tsne_mulitplot(save_dir: str, num_cols: int,
                                         SubdirNames.TSNE_EMBEDDINGS.value)
     embeddingses = __load_files_ending_with(".npy", tsne_embedddings_dir,
                                             np.load)
-
-    # embeddingses = []
-    # files = sorted(os.scandir(tsne_embedddings_dir),
-    #                key=lambda x : x.name)
-    # for file in files:
-    #     if file.name.endswith(".npy"):
-    #         embeddingses.append(np.load(file.path))
-
 
     num_runs = len(embeddingses)
     num_rows = int(math.ceil(num_runs / num_cols))
@@ -417,14 +426,46 @@ def __make_tsne_mulitplot(save_dir: str, num_cols: int,
     print(f"Saved t-SNE multiplot as {filename}.")
 
 def __plot_learning_curves(save_dir: str, params: dict[str, Any]):
-    def unpickle(filename:str) -> Any:
+    def json_load(filename:str) -> Any:
         with open(filename, "rb") as f:
-            output = pickle.load(filename)
+            output = json.load(f)
         return output
     losses_dir = os.path.join(save_dir, SubdirNames.LOSSES.value)
-    losseses = __load_files_ending_with(".pickle", losses_dir,
-                                        unpickle)
-    raise NotImplementedError("TODO")
+    losseses: list[list[float]]
+    losseses = __load_files_ending_with(".json", losses_dir,
+                                        json_load)
+    loss_mat = np.array(losseses)
+    loss_means = np.mean(loss_mat, axis=0).reshape((-1,))
+    loss_stds = np.std(loss_mat, axis=0, ddof=1).reshape((-1,))
+    num_batches = params[PARAM_KEYS.NUM_BATCHES.value]
+    assert len(loss_means) == num_batches
+    
+    loss_means_smooth = __smoothe_plot(loss_means)
+    loss_stds_smooth = __smoothe_plot(loss_stds)
+    conf_ival_top = loss_means_smooth + loss_stds_smooth
+    conf_ival_bot = loss_means_smooth - loss_stds_smooth
+
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    x_points = list(range(num_batches))
+    ax.semilogy(x_points, loss_means_smooth, "-",
+            color=CURVE_LINE_COLOR)
+    ax.fill_between(x_points, conf_ival_bot, conf_ival_top,
+                    color=CURVE_FILL_COLOR)
+    loss_name = params[PARAM_KEYS.LOSS_FUN.value]
+    ax.set_title(f"Mean losses per batch ({loss_name} loss)",
+                 weight="bold")
+    ax.set_xlabel("Batch index")
+    ax.set_ylabel(f"{loss_name} loss")
+    fig.tight_layout()
+    
+    filename = os.path.join(save_dir, "learn_curves.pdf")
+    fig.savefig(filename)
+    print(f"Saved learning curves as:\n{filename}")
+
+def __smoothe_plot(y_values: np.ndarray) -> np.ndarray:
+    window = max(len(y_values), SAVGOL_WINDOW)
+    return savgol_filter(y_values, window_length=window, mode="nearest",
+                         polyorder=2)
 
 def __plot_heatmaps(save_dir: str, params: dict[str, Any]):
     heatmaps_dir = os.path.join(save_dir, SubdirNames.HEATMAPS.value)
