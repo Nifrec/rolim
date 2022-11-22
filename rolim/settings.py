@@ -60,6 +60,13 @@ CIFAR10_LATENT_DIM = 32
 CIFAR10_NUM_BATCHES = 3000
 # Number of pairs of images in each batch of encoder training (default value)
 CIFAR10_BATCH_SIZE = 10
+# Class labels, in order corresponding to the label indices used:
+CIFAR10_CLASSES = ['airplane', 'automobile', 'bird', 'cat', 'deer', 
+                   'dog', 'frog', 'horse', 'ship', 'truck']
+
+# Whether or not to redownload the CIFAR10 dataset.
+# Set this to False when working offline, otherwise it throws errors.
+REDOWNLOAD_DATASET = False
 
 # Numpy random number generator used thoughout this project.
 # Could be used to fix the seed globally.

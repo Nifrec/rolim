@@ -48,7 +48,7 @@ from typing import Literal
 from rolim.networks.architectures import AtariCNN
 from rolim.settings import (CIFAR10_CHANNELS, CIFAR10_DIR, CIFAR10_HEIGHT, 
                             CIFAR10_LATENT_DIM, CIFAR10_NUM_BATCHES, 
-                            CIFAR10_WIDTH, CIFAR10_BATCH_SIZE, DEVICE,
+                            CIFAR10_WIDTH, CIFAR10_BATCH_SIZE, DEVICE, REDOWNLOAD_DATASET,
                             RNG)
 from rolim.tools.pairs import get_odd_even_vectors
 from rolim.whitening.whitening import dw_mse_loss, whiten
@@ -104,7 +104,8 @@ def train_encoder(method: TrainingMethod,
                        width=CIFAR10_WIDTH, out_size=CIFAR10_LATENT_DIM)
     optimizer = torch.optim.Adam(params=encoder.parameters())
     trainset = vision.datasets.CIFAR10(root=CIFAR10_DIR, train=True, 
-                                       download=False, transform=to_tensor)
+                                       download=REDOWNLOAD_DATASET, 
+                                       transform=to_tensor)
     batch_sampler = PairWiseBatchSampler(trainset, RNG, batch_size=batch_size,
                                          epoch_size=batch_size*num_batches)
     dataloader = DataLoader(trainset, batch_sampler=batch_sampler)
