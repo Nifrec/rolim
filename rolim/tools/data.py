@@ -34,10 +34,13 @@ Helper functions for converting or transforming data,
 generating filenames, etc.
 """
 # Library imports:
-import time
-import numpy as np
 import torch
 from torch import Tensor
+
+import json
+import time
+import numpy as np
+from typing import Any
 
 def get_timestamp() -> str:
     return time.strftime("%Y-%m-%d___%H-%M")
@@ -61,6 +64,13 @@ def all_tensor_in_list_to_cpu(tensors: list[Tensor]) -> list[Tensor]:
     return [tensor.cpu() for tensor in tensors]
 
 
+def json_load(filename:str) -> Any:
+    """
+    Load a `.json` file from disk.
+    """
+    with open(filename, "rb") as f:
+        output = json.load(f)
+    return output
 
 
 

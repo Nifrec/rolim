@@ -34,6 +34,8 @@ This file provides a function to perform multiple runs of an
 experiment and save the results to disk.
 Another function can then be used to aggregate the results
 into summarizing plots.
+
+It can be run as a script, in which case it performs a test run.
 """
 # Library imports:
 from numpy._typing import NDArray
@@ -62,17 +64,17 @@ import matplotlib.pyplot as plt
 
 # Local imports:
 from rolim.networks.architectures import AtariCNN
-from rolim.settings import (CIFAR10_CLASSES, CIFAR10_DIR, MULT_RUNS_DIR, RNG, DEVICE, 
+from rolim.settings import (CIFAR10_CLASSES, CIFAR10_DIR, MULT_RUNS_DIR, RNG, 
+                            DEVICE, 
                             TSNE_DEFAULT_PERPLEXITY,
                             REDOWNLOAD_DATASET)
-from rolim.encoder.pairwise_sampler import (PairWiseBatchSampler,
-                                            get_n_images_each_class)
+from rolim.encoder.pairwise_sampler import get_n_images_each_class
 from rolim.encoder.train_enc import train_encoder
 from rolim.tools.mse_matrix import compute_mse_heatmap, plot_heatmap
 from rolim.tools.data import (get_timestamp,
                               jitter_data,
                               nested_tensors_to_np,
-                              all_tensor_in_list_to_cpu)
+                              json_load)
 T = TypeVar("T")
 
 WorkerJob = namedtuple("WorkerJob",
@@ -325,13 +327,15 @@ def __save_heatmap(heatmap: Tensor, run_root_dir: str, run_name: str):
     print(f"Saved heatmap of {run_name} as '{filename}'")
 
 
-def perform_test_execution():
+def perform_test_execution() -> str:
     """
     Test the multiple runs training, saving, loading
     and aggregating pipeline,
     using very short training procedures
     (the minimal number to ensure it generalizes to multiple runs,
     multiple batches, etc.).
+
+    Return the created directory (can be used as input to `aggregate_results`).
     """
     save_dir = train_enc_multiple_runs(num_runs=2,
                                        loss_fun="MSE",
@@ -341,6 +345,7 @@ def perform_test_execution():
                                        num_workers=2,
                                        root_dir = os.path.join(MULT_RUNS_DIR,
                                                            "test_executions"))
+    return save_dir
 
 def aggregate_results(save_dir: str,
                       tsne_plots_num_cols: int,
@@ -426,14 +431,9 @@ def __make_tsne_mulitplot(save_dir: str, num_cols: int,
     print(f"Saved t-SNE multiplot as {filename}.")
 
 def __plot_learning_curves(save_dir: str, params: dict[str, Any]):
-    def json_load(filename:str) -> Any:
-        with open(filename, "rb") as f:
-            output = json.load(f)
-        return output
     losses_dir = os.path.join(save_dir, SubdirNames.LOSSES.value)
     losseses: list[list[float]]
-    losseses = __load_files_ending_with(".json", losses_dir,
-                                        json_load)
+    losseses = __load_files_ending_with(".json", losses_dir, json_load)
     loss_mat = np.array(losseses)
     loss_means = np.mean(loss_mat, axis=0).reshape((-1,))
     loss_stds = np.std(loss_mat, axis=0, ddof=1).reshape((-1,))
@@ -504,10 +504,11 @@ def __load_files_ending_with(extension: str, directory: str,
     return output
 
 if __name__ == "__main__":
-    # perform_test_execution()
+    testrun_dir = perform_test_execution()
     testdir = "/home/nifrec/documents/master_2/sadrl/rolim"\
               +"/rolim/encoder/runs/test_executions/example_run.run"
-    aggregate_results(testdir, tsne_plots_num_cols=2, tsne_apply_jitter=False)
+    aggregate_results(testrun_dir, tsne_plots_num_cols=2, 
+                      tsne_apply_jitter=False)
 
 
 
