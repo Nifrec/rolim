@@ -102,9 +102,16 @@ class PARAM_KEYS(enum.Enum):
     SAVE_DIR = "save_dir"
     TIME = "time"	
 
+# Settings for the plots
 CURVE_LINE_COLOR = np.array((201, 42, 42), dtype=np.float_) / 255
 CURVE_FILL_COLOR = np.append(CURVE_LINE_COLOR, [128/255])
 SAVGOL_WINDOW = 25
+HEATMAP_COLOR_MIN = 0
+HEATMAP_COLOR_MAX = 0.0005
+HEATMAP_IMSHOW_KWARGS = {
+        "vmin" : HEATMAP_COLOR_MIN,
+        "vmax" : HEATMAP_COLOR_MAX
+        }
 
 def train_enc_multiple_runs(
                   num_runs: int,
@@ -487,7 +494,8 @@ def __plot_heatmaps(heatmaps: list[Tensor],
     std_heatmap = torch.std(stacked, dim=0)
     m_ax, m_fig, m_cb = plot_heatmap(mean_heatmap, 
                                      xtick_labels=CIFAR10_CLASSES,
-                                     ytick_labels=CIFAR10_CLASSES)
+                                     ytick_labels=CIFAR10_CLASSES,
+                                     imshow_kwargs=HEATMAP_IMSHOW_KWARGS)
     m_fig.suptitle(f"Mean of pairwise MSE errors for {params['loss_fun']} loss",
                    weight="bold", size="large") 
     m_fig.tight_layout() 
@@ -495,7 +503,8 @@ def __plot_heatmaps(heatmaps: list[Tensor],
     m_fig.savefig(m_filename)
     s_ax, s_fig, s_cb = plot_heatmap(std_heatmap, 
                                      xtick_labels=CIFAR10_CLASSES,
-                                     ytick_labels=CIFAR10_CLASSES)
+                                     ytick_labels=CIFAR10_CLASSES,
+                                     imshow_kwargs=HEATMAP_IMSHOW_KWARGS)
     s_fig.suptitle(f"Standard deviation of pairwise MSE errors "
                    f"for {params['loss_fun']} loss",
                    weight="bold", size="large")
