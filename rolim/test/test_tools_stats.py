@@ -37,11 +37,12 @@ import unittest
 import torch
 from torch.distributions.multivariate_normal import MultivariateNormal
 from torch import Tensor
+import numpy as np
 
 # Local imports:
 from rolim.whitening.whitening import whiten
 from rolim.tools.testing import assert_tensor_eq
-from rolim.tools.stats import sample_covar
+from rolim.tools.stats import get_all_diag_entries, get_all_upper_entries, get_diagonal_entries, get_upper_triangular_entries, sample_covar
 
 class SampleCovarTestCase(unittest.TestCase):
 
@@ -95,5 +96,96 @@ class SampleCovarTestCase(unittest.TestCase):
         output = sample_covar(sample)
         assert_tensor_eq(covar, output, atol=1)
 
+class DiagonalEntriesTestCase(unittest.TestCase):
+    """
+    Testcases for the functions that get diagonal entries of matrices.
+    """
+
+    def test_1_matrix(self):
+        mat = np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9]])
+        expected = np.array([1, 5, 9])
+        result = get_diagonal_entries(mat)
+        np.testing.assert_allclose(result, expected)
+
+    def test_multiple_matrices(self):
+        mat1 = np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9]])
+        mat2 = np.array([
+            [3, 4],
+            [5, 6]])
+        mat3 = np.eye(5)
+        matrices = (mat1, mat2, mat3)
+        expected = np.array([1, 5, 9] + [3, 6] + [1]*5)
+        result = get_all_diag_entries(matrices)
+        np.testing.assert_allclose(result, expected)
+
+class UpperTriangEntriesTestCase(unittest.TestCase):
+    """
+    Testcases for the functions that get upper-triangular
+    entries of matrices.
+    """
+
+    def test_1_matrix(self):
+        mat = np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9]])
+        expected = np.array([2, 3, 6])
+        result = get_upper_triangular_entries(mat)
+        np.testing.assert_allclose(result, expected)
+
+    def test_multiple_matrices(self):
+        mat1 = np.array([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9]])
+        mat2 = np.array([
+            [3, 4],
+            [5, 6]])
+        mat3 = np.eye(5)
+        matrices = (mat1, mat2, mat3)
+        expected = np.array([2, 3, 6] + [4] + [0]*10)
+        result = get_all_upper_entries(matrices)
+        np.testing.assert_allclose(result, expected)
+
 if __name__ == "__main__":
     unittest.main()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

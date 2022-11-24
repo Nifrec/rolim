@@ -37,7 +37,8 @@ computing the sample covariance of a set of vectors.
 import torch
 from torch import Tensor
 from torch.distributions.multivariate_normal import MultivariateNormal
-from typing import Optional
+from typing import Optional, Iterable
+import numpy as np
 
 # Local imports:
 from rolim.settings import WHITEN_REG_EPS
@@ -120,3 +121,64 @@ def randomized_multinormal_distr(dim: int,
     covar = (1-reg_eps) * covar + reg_eps * torch.eye(dim)
 
     return MultivariateNormal(loc=mean, covariance_matrix=covar)
+
+
+def get_diagonal_entries(mat: np.ndarray) -> np.ndarray:
+    return np.diag(mat)
+
+def get_all_diag_entries(matrices: Iterable[np.ndarray]) -> np.ndarray:
+    """
+    Return the concatenated diagonal entries of multiple matrices
+    as one 1D array.
+    """
+    return np.concatenate([np.diag(mat) for mat in matrices])
+
+def get_upper_triangular_entries(mat: np.ndarray) -> np.ndarray:
+    """
+    Return the above-diagonal entries of a square matrix as a 1D array.
+    (By inputting the transposed matrix, this also function
+    can also be used to get the lower triangular entries).
+
+    Note: the diagonal entries are NOT included.
+    """
+    if len(mat.shape) != 2 or mat.shape[0] != mat.shape[1]:
+        raise ValueError(f"Input matrix is not square: size: {mat.shape}")
+
+    indices = np.triu_indices(mat.shape[0], 1)
+    return mat[indices]
+
+def get_all_upper_entries(matrices: Iterable[np.ndarray]) -> np.ndarray:
+    """
+    Return the concatenated above-diagonal entries of multiple square matrices
+    as one 1D array.
+    The diagonal entries are not included.
+    """
+    return np.concatenate([get_upper_triangular_entries(mat) for mat in
+                           matrices])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
