@@ -63,6 +63,7 @@ CIFAR10_BATCH_SIZE = 10
 # Class labels, in order corresponding to the label indices used:
 CIFAR10_CLASSES = ['airplane', 'automobile', 'bird', 'cat', 'deer', 
                    'dog', 'frog', 'horse', 'ship', 'truck']
+CIFAR10_NUM_CLASSES = len(CIFAR10_CLASSES)
 
 # Whether or not to redownload the CIFAR10 dataset.
 # Set this to False when working offline, otherwise it throws errors.
