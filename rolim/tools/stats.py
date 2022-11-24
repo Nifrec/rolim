@@ -125,7 +125,8 @@ def randomized_multinormal_distr(dim: int,
 
 
 def get_diagonal_entries(mat: Tensor | NDArray) -> NDArray:
-    return np.asarray(np.diag(mat))
+    mat = __to_numpy(mat)
+    return np.diag(mat)
 
 def get_all_diag_entries(matrices: Iterable[Tensor|NDArray]) -> NDArray:
     """
@@ -146,7 +147,7 @@ def get_upper_triangular_entries(mat: Tensor | NDArray) -> NDArray:
         raise ValueError(f"Input matrix is not square: size: {mat.shape}")
 
     indices = np.triu_indices(mat.shape[0], 1)
-    return np.asarray(mat[indices])
+    return __to_numpy(mat)[indices]
 
 def get_all_upper_entries(matrices: Iterable[Tensor|NDArray]) -> NDArray:
     """
@@ -156,7 +157,14 @@ def get_all_upper_entries(matrices: Iterable[Tensor|NDArray]) -> NDArray:
     """
     output = np.concatenate([get_upper_triangular_entries(mat) for mat in
                            matrices])
-    return np.asarray(output)
+    return output
+
+def __to_numpy(array: Tensor | NDArray) -> NDArray:
+    # Just np.asarray() does not work with PyTorch CUDA tensors.
+    if isinstance(array, np.ndarray):
+        return array
+    elif isinstance(array, Tensor):
+        return array.cpu().numpy()
 
 
 
