@@ -191,6 +191,10 @@ class PairWiseBatchSampler(PairSampler):
             with replacement from the dataset, so this
             number may exceed the dataset size.
         """
+        print("Created PairWiseBatchSampler sampling "
+              f"{epoch_size//(batch_size*2)} "
+              f"batches of {batch_size} pairs each, "
+              f"for a total of {epoch_size} images.")
         super().__init__(dataset, rng, epoch_size)
         self.__batch_size = batch_size
         if epoch_size % 2 != 0:
@@ -206,10 +210,13 @@ class PairWiseBatchSampler(PairSampler):
     def __iter__(self) -> Iterator[list[int]]:
         super_iterator = super().__iter__()
         budget = self.epoch_size
+        num_batches = 0
         while budget >= self.batch_size:
             batch = [next(super_iterator) for _ in range(2*self.batch_size)]
             budget -= 2*self.batch_size
             yield batch
+            num_batches += 1
+        assert num_batches == self.epoch_size // (self.batch_size*2)
 
 class CorrelatedBatchSampler(PairWiseBatchSampler):
     """

@@ -89,7 +89,7 @@ def train_encoder(method: TrainingMethod,
     * run_checks: flag whether to run assertions for tensor shapes.
     * num_batches: number of batches of images to train on before the
         training stops.
-    * batch_size: number of pairs of images in each minibatch.
+    * batch_size: number of **pairs** of images in each batch.
     * correlated_batches: flag whether all pairs in each batch
         are of the same class label. If True,
         one class is randomly chosen for each batch.
@@ -119,6 +119,9 @@ def train_encoder(method: TrainingMethod,
         losses.append(loss)
 
     losses_as_floats = [loss.item() for loss in losses]
+    assert (len(losses_as_floats) == num_batches), \
+            f"Got {len(losses_as_floats)} losses but expected {num_batches}" \
+            " batches."
     return (encoder, losses_as_floats)
 
 def __load_dataset(batch_size: int,
@@ -134,7 +137,7 @@ def __load_dataset(batch_size: int,
         sampler_type = CorrelatedBatchSampler
 
     batch_sampler = sampler_type(trainset, RNG, batch_size=batch_size,
-                                 epoch_size=batch_size*num_batches)
+                                 epoch_size=2*batch_size*num_batches)
     dataloader = DataLoader(trainset, batch_sampler=batch_sampler,
                             num_workers=1)
     return dataloader

@@ -157,8 +157,8 @@ def train_enc_multiple_runs(
             and multiplying by the inverse covariance matrix.
     * num_batches: number of batches of images to train on before the
         training stops.
-    * batch_size: number of pairs of images in each minibatch.
-    * test_set_batch: number of pairs to sample of each class
+    * batch_size: number of **pairs** of images in each minibatch.
+    * test_set_batch: number of images sample of each class
         for the test-set embeddings (used for the heatmap and t-SNE plot).
     * num_workers: number of parallell processes doing the training
         and evaluation. If `None`, equally many workers are created
@@ -339,7 +339,7 @@ def perform_test_execution() -> str:
     save_dir = train_enc_multiple_runs(num_runs=2,
                                        loss_fun="MSE",
                                        batch_size=2,
-                                       num_batches=100,
+                                       num_batches=50,
                                        test_set_batch=2,
                                        num_workers=2,
                                        root_dir = os.path.join(MULT_RUNS_DIR,
@@ -438,7 +438,8 @@ def __plot_learning_curves(save_dir: str, params: dict[str, Any]):
     loss_means = np.mean(loss_mat, axis=0).reshape((-1,))
     loss_stds = np.std(loss_mat, axis=0, ddof=1).reshape((-1,))
     num_batches = params[PARAM_KEYS.NUM_BATCHES.value]
-    assert len(loss_means) == num_batches
+    assert len(loss_means) == num_batches, \
+            f"Got {len(loss_means)} losses, but expected {num_batches} batches."
     
     loss_means_smooth = __smoothe_plot(loss_means)
     loss_stds_smooth = __smoothe_plot(loss_stds)
@@ -522,14 +523,16 @@ def __heatmap_summary_statistics(heatmaps:Iterable[Tensor|NDArray],
     Note that the summary statistics take the concatenation of
     all diagonal/upper-triangular entries as the sample.
     """
+    # Numpy floating types are not serializible, need to convert to Python
+    # floats.
     diag_entries = get_all_diag_entries(heatmaps)
-    diag_mean = np.mean(diag_entries)
-    diag_std = np.std(diag_entries, ddof=1)
+    diag_mean = float(np.mean(diag_entries))
+    diag_std = float(np.std(diag_entries, ddof=1))
     diag_entries_list = diag_entries.tolist()
 
     upper_entries = get_all_upper_entries(heatmaps)
-    upper_mean = np.mean(upper_entries)
-    upper_std = np.std(upper_entries, ddof=1)
+    upper_mean = float(np.mean(upper_entries))
+    upper_std = float(np.std(upper_entries, ddof=1))
     upper_entries_list = upper_entries.tolist()
 
     dictionary = {
@@ -560,8 +563,6 @@ def __load_files_ending_with(extension: str, directory: str,
 
 if __name__ == "__main__":
     testrun_dir = perform_test_execution()
-    testdir = "/home/nifrec/documents/master_2/sadrl/rolim"\
-              +"/rolim/encoder/runs/test_executions/example_run.run"
     aggregate_results(testrun_dir, tsne_plots_num_cols=2, 
                       tsne_apply_jitter=False)
 
