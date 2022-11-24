@@ -48,19 +48,20 @@ from typing import Literal
 from rolim.networks.architectures import AtariCNN
 from rolim.settings import (CIFAR10_CHANNELS, CIFAR10_DIR, CIFAR10_HEIGHT, 
                             CIFAR10_LATENT_DIM, CIFAR10_NUM_BATCHES, 
-                            CIFAR10_WIDTH, CIFAR10_BATCH_SIZE, DEVICE, REDOWNLOAD_DATASET,
-                            RNG)
+                            CIFAR10_WIDTH, CIFAR10_BATCH_SIZE, DEVICE, 
+                            REDOWNLOAD_DATASET, RNG)
 from rolim.tools.pairs import get_odd_even_vectors
 from rolim.whitening.whitening import dw_mse_loss, whiten
 from rolim.encoder.pairwise_sampler import (
-        load_cifar_10_dataset, PairWiseBatchSampler)
+        CorrelatedBatchSampler, load_cifar_10_dataset, PairWiseBatchSampler)
 
 TrainingMethod = Literal["distance", "decoder", "predictor"]
 def train_encoder(method: TrainingMethod,
                   distance_loss: Literal["MSE", "W-MSE", "DW-MSE"],
                   run_checks: bool = False,
                   num_batches: int = CIFAR10_NUM_BATCHES,
-                  batch_size: int = CIFAR10_BATCH_SIZE
+                  batch_size: int = CIFAR10_BATCH_SIZE,
+                  correlated_batches: bool = False
                   ) -> tuple[AtariCNN, list[float]]:
     """
     Train an `AtariCNN` on the CIFAR10 dataset.
@@ -89,6 +90,10 @@ def train_encoder(method: TrainingMethod,
     * num_batches: number of batches of images to train on before the
         training stops.
     * batch_size: number of pairs of images in each minibatch.
+    * correlated_batches: flag whether all pairs in each batch
+        are of the same class label. If True,
+        one class is randomly chosen for each batch.
+        If False, a class is randomly chosen for each pair within the batch.
 
     Returns:
     * encoder: trained convolutional network.
@@ -103,13 +108,8 @@ def train_encoder(method: TrainingMethod,
     encoder = AtariCNN(channels=CIFAR10_CHANNELS, height=CIFAR10_HEIGHT, 
                        width=CIFAR10_WIDTH, out_size=CIFAR10_LATENT_DIM)
     optimizer = torch.optim.Adam(params=encoder.parameters())
-    trainset = vision.datasets.CIFAR10(root=CIFAR10_DIR, train=True, 
-                                       download=REDOWNLOAD_DATASET, 
-                                       transform=to_tensor)
-    batch_sampler = PairWiseBatchSampler(trainset, RNG, batch_size=batch_size,
-                                         epoch_size=batch_size*num_batches)
-    dataloader = DataLoader(trainset, batch_sampler=batch_sampler)
 
+    dataloader = __load_dataset(batch_size, num_batches, correlated_batches)
     losses: list[Tensor] = []
     for batch_images, batch_labels in dataloader:
         batch_images = batch_images.to(DEVICE) 
@@ -120,6 +120,24 @@ def train_encoder(method: TrainingMethod,
 
     losses_as_floats = [loss.item() for loss in losses]
     return (encoder, losses_as_floats)
+
+def __load_dataset(batch_size: int,
+                   num_batches: int,
+                   correlated_batches: bool
+                   ) -> DataLoader:
+    trainset = vision.datasets.CIFAR10(root=CIFAR10_DIR, train=True, 
+                                       download=REDOWNLOAD_DATASET, 
+                                       transform=to_tensor)
+    if not correlated_batches:
+        sampler_type = PairWiseBatchSampler
+    else:
+        sampler_type = CorrelatedBatchSampler
+
+    batch_sampler = sampler_type(trainset, RNG, batch_size=batch_size,
+                                 epoch_size=batch_size*num_batches)
+    dataloader = DataLoader(trainset, batch_sampler=batch_sampler,
+                            num_workers=1)
+    return dataloader
 
 def _train_1_batch_distance_minimization(encode_net: AtariCNN, 
                            batch: Tensor, 
