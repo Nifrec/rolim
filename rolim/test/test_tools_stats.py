@@ -124,10 +124,27 @@ class DiagonalEntriesTestCase(unittest.TestCase):
         result = get_all_diag_entries(matrices)
         np.testing.assert_allclose(result, expected)
 
+    def test_pytorch_input(self):
+        mat1 = torch.tensor([[1, 2], [3, 4]])
+        mat2 = torch.tensor([[5, 6], [7, 8]])
+        matrices = (mat1, mat2)
+
+        single_result = get_diagonal_entries(mat1)
+        self.assertIsInstance(single_result, np.ndarray)
+        np.testing.assert_allclose(single_result, np.array([1, 4]))
+
+        mult_result = get_all_diag_entries(matrices)
+
+        self.assertIsInstance(mult_result, np.ndarray)
+        np.testing.assert_allclose(mult_result, np.array([1, 4, 5, 8]))
+
 class UpperTriangEntriesTestCase(unittest.TestCase):
     """
     Testcases for the functions that get upper-triangular
     entries of matrices.
+
+    The tests use the same matrices as for the diagonal function tests
+    in `DiagonalEntriesTestCase`.
     """
 
     def test_1_matrix(self):
@@ -153,6 +170,19 @@ class UpperTriangEntriesTestCase(unittest.TestCase):
         result = get_all_upper_entries(matrices)
         np.testing.assert_allclose(result, expected)
 
+    def test_pytorch_input(self):
+        mat1 = torch.tensor([[1, 2], [3, 4]])
+        mat2 = torch.tensor([[5, 6], [7, 8]])
+        matrices = (mat1, mat2)
+
+        single_result = get_upper_triangular_entries(mat1)
+        self.assertIsInstance(single_result, np.ndarray)
+        np.testing.assert_allclose(single_result, np.array([2]))
+
+        mult_result = get_all_upper_entries(matrices)
+
+        self.assertIsInstance(mult_result, np.ndarray)
+        np.testing.assert_allclose(mult_result, np.array([2, 6]))
 if __name__ == "__main__":
     unittest.main()
 

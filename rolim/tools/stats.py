@@ -39,6 +39,7 @@ from torch import Tensor
 from torch.distributions.multivariate_normal import MultivariateNormal
 from typing import Optional, Iterable
 import numpy as np
+from numpy.typing import NDArray
 
 # Local imports:
 from rolim.settings import WHITEN_REG_EPS
@@ -123,17 +124,17 @@ def randomized_multinormal_distr(dim: int,
     return MultivariateNormal(loc=mean, covariance_matrix=covar)
 
 
-def get_diagonal_entries(mat: np.ndarray) -> np.ndarray:
-    return np.diag(mat)
+def get_diagonal_entries(mat: Tensor | NDArray) -> NDArray:
+    return np.asarray(np.diag(mat))
 
-def get_all_diag_entries(matrices: Iterable[np.ndarray]) -> np.ndarray:
+def get_all_diag_entries(matrices: Iterable[Tensor|NDArray]) -> NDArray:
     """
     Return the concatenated diagonal entries of multiple matrices
     as one 1D array.
     """
-    return np.concatenate([np.diag(mat) for mat in matrices])
+    return np.concatenate([get_diagonal_entries(mat) for mat in matrices])
 
-def get_upper_triangular_entries(mat: np.ndarray) -> np.ndarray:
+def get_upper_triangular_entries(mat: Tensor | NDArray) -> NDArray:
     """
     Return the above-diagonal entries of a square matrix as a 1D array.
     (By inputting the transposed matrix, this also function
@@ -145,16 +146,17 @@ def get_upper_triangular_entries(mat: np.ndarray) -> np.ndarray:
         raise ValueError(f"Input matrix is not square: size: {mat.shape}")
 
     indices = np.triu_indices(mat.shape[0], 1)
-    return mat[indices]
+    return np.asarray(mat[indices])
 
-def get_all_upper_entries(matrices: Iterable[np.ndarray]) -> np.ndarray:
+def get_all_upper_entries(matrices: Iterable[Tensor|NDArray]) -> NDArray:
     """
     Return the concatenated above-diagonal entries of multiple square matrices
     as one 1D array.
     The diagonal entries are not included.
     """
-    return np.concatenate([get_upper_triangular_entries(mat) for mat in
+    output = np.concatenate([get_upper_triangular_entries(mat) for mat in
                            matrices])
+    return np.asarray(output)
 
 
 
