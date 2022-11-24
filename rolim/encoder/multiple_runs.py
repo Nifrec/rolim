@@ -38,19 +38,16 @@ into summarizing plots.
 It can be run as a script, in which case it performs a test run.
 """
 # Library imports:
-from numpy._typing import NDArray
 import torch
 from torch import Tensor
-import torch.nn as nn
 import torchvision as vision
 from torchvision.datasets import CIFAR10
 from torchvision.transforms.functional import to_tensor
-from torch.utils.data import DataLoader
 
  # Provides same API as Python's `multiprocessing`
 import torch.multiprocessing as multiprocessing
 
-from typing import Literal, Optional, Any, Callable, TypeVar
+from typing import Literal, Optional, Any, Callable, TypeVar, Iterable
 from collections import namedtuple
 import enum
 import os
@@ -59,6 +56,7 @@ import math
 from sklearn.manifold import TSNE
 from scipy.signal import savgol_filter
 import numpy as np
+from numpy.typing import NDArray
 import warnings
 import matplotlib.pyplot as plt
 
@@ -75,6 +73,7 @@ from rolim.tools.data import (get_timestamp,
                               jitter_data,
                               nested_tensors_to_np,
                               json_load)
+from rolim.tools.stats import get_all_diag_entries, get_all_upper_entries
 T = TypeVar("T")
 
 WorkerJob = namedtuple("WorkerJob",
@@ -227,11 +226,11 @@ def __perform_run(i:int, job: WorkerJob):
                                     run_checks=False, num_batches=num_batches,
                                     batch_size=batch_size)
 
+    print(f"Run {run_num} finished training; starting test set evaluation")
+
     testset = vision.datasets.CIFAR10(root=CIFAR10_DIR, train=False, 
                                       download=REDOWNLOAD_DATASET, 
                                       transform=to_tensor)
-    print(f"Run {run_num} finished training; starting test set evaluation")
-
     test_images = get_n_images_each_class(test_set_batch, testset)
     test_images = [torch.stack([image 
                     for image in images], dim=0).to(DEVICE)
@@ -360,6 +359,7 @@ def aggregate_results(save_dir: str,
     * A heatmap-plot of the standard deviations of the heatmaps.
     These outputs will be saved in the directory `save_dir`
     as PDF files.
+    * A JSON file with summary statistics of the heatmaps.
 
     Arguments:
     * save_dir: path to the `*.run` directory created by 
@@ -381,7 +381,7 @@ def aggregate_results(save_dir: str,
     params = __load_parameters(save_dir)
     __make_tsne_mulitplot(save_dir, tsne_plots_num_cols, tsne_apply_jitter,
                           params)
-    __plot_heatmaps(save_dir, params)
+    __aggregate_heatmaps(save_dir, params)
     __plot_learning_curves(save_dir, params)
     print("Finished aggregating data. Output has been saved to disk.")
 
@@ -467,9 +467,20 @@ def __smoothe_plot(y_values: np.ndarray) -> np.ndarray:
     return savgol_filter(y_values, window_length=window, mode="nearest",
                          polyorder=2)
 
-def __plot_heatmaps(save_dir: str, params: dict[str, Any]):
+def __aggregate_heatmaps(save_dir: str, params: dict[str, Any]):
+    """
+    Load heatmaps, compute and save the following:
+    * PDF, per-entry mean of heatmaps.
+    * PDF, per-entry sample standard deviation of heatmaps.
+    * JSON, summary statistics of heatmaps.
+    """
     heatmaps_dir = os.path.join(save_dir, SubdirNames.HEATMAPS.value)
     heatmaps = __load_files_ending_with(".pt", heatmaps_dir, torch.load)
+    __plot_heatmaps(heatmaps, save_dir, params)
+    __heatmap_summary_statistics(heatmaps, save_dir)
+
+def __plot_heatmaps(heatmaps: list[Tensor],
+                    save_dir: str, params: dict[str, Any]):
     stacked = torch.stack(heatmaps)
     mean_heatmap = torch.mean(stacked, dim=0)
     std_heatmap = torch.std(stacked, dim=0)
@@ -477,8 +488,8 @@ def __plot_heatmaps(save_dir: str, params: dict[str, Any]):
                                      xtick_labels=CIFAR10_CLASSES,
                                      ytick_labels=CIFAR10_CLASSES)
     m_fig.suptitle(f"Mean of pairwise MSE errors for {params['loss_fun']} loss",
-                   weight="bold", size="large")
-    m_fig.tight_layout()
+                   weight="bold", size="large") 
+    m_fig.tight_layout() 
     m_filename = os.path.join(save_dir, "heatmaps_mean.pdf")
     m_fig.savefig(m_filename)
     s_ax, s_fig, s_cb = plot_heatmap(std_heatmap, 
@@ -491,6 +502,50 @@ def __plot_heatmaps(save_dir: str, params: dict[str, Any]):
     s_filename = os.path.join(save_dir, "heatmaps_std.pdf")
     s_fig.savefig(s_filename)
     print(f"Saved aggregated heatmaps as\n{m_filename}\nand\n{s_filename}")
+
+def __heatmap_summary_statistics(heatmaps:Iterable[Tensor|NDArray],
+                                 save_dir: str):
+    """
+    Compute summary statistics of the heatmaps and save it to a JSON
+    file (as a dictionary).
+    Statistics with JSON keys:
+    * "diag_entries": list[float], diagonal entries of all heatmaps
+        (concatenated into a single list).
+    * "upper_entries": list[float], upper triangular entries of
+        all heatmaps, not including the diagonal entries themselves
+        (also concatenated into a single list).
+    * "diag_mean": float, mean of diagonal entries.
+    * "diag_std": float, sample standard deviation of diagonal entries.
+    * "upper_mean": float, mean of upper-triangular entries.
+    * "upper_std": float, std of upper-triangular entries.
+
+    Note that the summary statistics take the concatenation of
+    all diagonal/upper-triangular entries as the sample.
+    """
+    diag_entries = get_all_diag_entries(heatmaps)
+    diag_mean = np.mean(diag_entries)
+    diag_std = np.std(diag_entries, ddof=1)
+    diag_entries_list = diag_entries.tolist()
+
+    upper_entries = get_all_upper_entries(heatmaps)
+    upper_mean = np.mean(upper_entries)
+    upper_std = np.std(upper_entries, ddof=1)
+    upper_entries_list = upper_entries.tolist()
+
+    dictionary = {
+            "diag_entries":diag_entries_list,
+            "upper_entries":upper_entries_list,
+            "diag_mean":diag_mean,
+            "diag_std":diag_std,
+            "upper_mean":upper_mean,
+            "upper_std":upper_std
+            }
+    filename = os.path.join(save_dir, "heatmaps_summary.json")
+    with open(filename, "w") as f:
+        json.dump(dictionary, f)
+    print(f"Saved heatmap summary statistics as:\n{filename}")
+
+
             
 def __load_files_ending_with(extension: str, directory: str,
                              load_function: Callable[[str], T]
