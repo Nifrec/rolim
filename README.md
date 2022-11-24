@@ -9,7 +9,7 @@ by Alexander Ermolov and Nice Sebe (2020).
 ### Most interesting
 * `rolim/encoder/multiple_runs.py` contains functions implementing the
     main experiment. These functions work in 2 phases:
-    - The first function `train_enc_multiiple_runs`
+    - The first function `train_enc_multiple_runs`
         trains multiple encoders in parallel, evaluates them on the test set
         (makes error heatmap and t-SNE embeddings), and stores all
         results to disk. The implementation is parallelized.
