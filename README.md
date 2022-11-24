@@ -58,3 +58,16 @@ but have not been tested.
 ## Notes/potential bugs
 * The code may accidentally try to store tensors on a GPU
     even when specified differently in `settings.py`.
+* You may need to redownload the CIFAR10 dataset. Set `REDOWNLOAD_DATASET`
+    in `settings.py` to `True`. It is best to run scripts while using
+    `rolim` (the directory containing `settings.py`) as your current working
+    directory.
+* The test run breaks on my machine when I raise the number of batches to 100
+    instead of 50. A PyTorch error I cannot really interpret.
+    It seems it fails to release CUDA memory when multiprocessing,
+    since `torch` calls a function of `torch` that is undefined...
+    ```
+    File "/home/nifrec/.pyenv/versions/rolim/lib/python3.10/site-packages/torch/storage.py", line 757, in _expired
+    return eval(cls.__module__)._UntypedStorage._expired(*args, **kwargs)
+    AttributeError: module 'torch.cuda' has no attribute '_UntypedStorage
+    ```
