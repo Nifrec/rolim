@@ -78,7 +78,8 @@ T = TypeVar("T")
 
 WorkerJob = namedtuple("WorkerJob",
                        ("loss_fun", "num_batches", "batch_size",
-                        "test_set_batch", "save_dir", "run_num")
+                        "test_set_batch", "save_dir", "run_num",
+                        "jobs_per_worker")
                        )
 
 class SubdirNames(enum.Enum):
@@ -175,6 +176,9 @@ def train_enc_multiple_runs(
     Returns:
     * Directory name of the newly created directory.
     """
+    if num_workers is None:
+        num_workers = os.cpu_count()
+    assert (isinstance(num_workers, int))
     timestamp = get_timestamp()
     save_dir = os.path.join(root_dir, loss_fun + "_" + timestamp + ".run")
     for subdir in SubdirNames:
@@ -193,13 +197,42 @@ def train_enc_multiple_runs(
                       batch_size = batch_size,
                       test_set_batch = test_set_batch,
                       save_dir = save_dir,
-                      run_num = num)
+                      run_num = num,
+                      jobs_per_worker=num_runs//num_workers)
             for num in range(num_runs)]
+    # procs = [multiprocessing.spawn(__perform_run, args=(job,), nprocs=1,
+                              # join=False) for job in jobs]
+    # for proc in procs:
+        # proc.join()
+    __dispatch_jobs(jobs, num_workers)
+    return save_dir
+
+def __dispatch_jobs(jobs: list[WorkerJob], num_workers: int):
+    while len(jobs) > 0:
+        next_jobs = [jobs.pop() for _ in range(min(len(jobs), num_workers))]
+        print(f"Starting the next batch of {len(next_jobs)} jobs.")
+        procs = [multiprocessing.spawn(__perform_run, args=(job,), nprocs=1,
+                              join=False) for job in next_jobs]
+        assert len(procs) <= num_workers, "Too many workers are being created."
+        for proc in procs:
+            proc.join()
+        print(f"Current batch of {len(next_jobs)} jobs all finished.")
+    print("All jobs (experiment runs) have finished.")
+
+def __run_batch_of_jobs(worker_idx: int, jobs: list[WorkerJob]):
+    num_jobs_per_worker = jobs[0].jobs_per_worker
+    num_jobs = len(jobs)
+    my_job_indices = list(range(worker_idx * num_jobs_per_worker,
+                                max((worker_idx+1) * num_jobs_per_worker,
+                                    num_jobs)))
+    print(f"Starting jobs {my_job_indices} in parallel"
+          f" out of {num_jobs} jobs.")
+    my_jobs = [jobs[idx] for idx in my_job_indices]
     procs = [multiprocessing.spawn(__perform_run, args=(job,), nprocs=1,
-                              join=False) for job in jobs]
+                              join=False) for job in my_jobs]
     for proc in procs:
         proc.join()
-    return save_dir
+    print(f"Finished jobs {my_job_indices}.")
 
 def __worker_setup():
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
