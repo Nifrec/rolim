@@ -44,7 +44,7 @@ from rolim.settings import MULT_RUNS_DIR
 
 # Local imports:
 
-NUM_RUNS = 100
+NUM_RUNS = 50
 BATCH_SIZE = 25
 NUM_WORKERS = 4
 TEST_SET_BATCH = 300
