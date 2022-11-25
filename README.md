@@ -40,6 +40,19 @@ by Alexander Ermolov and Nice Sebe (2020).
     as well as encoder-specific experiments.
 * `rolim/tools/` contains several files of helper functions.
 
+## Installation
+This repository must be installed as a Python package before it can be used,
+since the different files import each other as an installed Python library.
+The simplest approach to install this repository via a terminal is to:
+1. Clone the git repository.
+2. Change your working directory to the directory containing `setup.py`.
+3. Activate an appropriate Python virtual environment if you are using
+    virtual environments.
+4. Run:
+    ```bash
+    pip install -e .
+    ```
+
 ## Requirements
 The file `rolim/tools/libraries.py` imports all required libraries
 and print their versions, so it is a simple tool to verify the installation.
