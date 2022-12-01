@@ -40,15 +40,16 @@ from rolim.encoder.multiple_runs import (
         aggregate_results,
         train_enc_multiple_runs)
 
+# Local imports:
 from rolim.settings import MULT_RUNS_DIR
 
-# Local imports:
 
 NUM_RUNS = 50
 BATCH_SIZE = 25
 NUM_WORKERS = 4
 TEST_SET_BATCH = 300
 NUM_BATCHES = 1000
+CORRELATED_BATCHES = False
 
 def run_default_experiments() -> list[str]:
     """
@@ -65,7 +66,9 @@ def run_default_experiments() -> list[str]:
                                            num_batches=NUM_BATCHES,
                                            test_set_batch=TEST_SET_BATCH,
                                            num_workers=NUM_WORKERS,
-                                           root_dir = MULT_RUNS_DIR)
+                                           root_dir = MULT_RUNS_DIR,
+                                           correlated_batches=CORRELATED_BATCHES
+                                           )
         save_dirs.append(save_dir)
     return save_dirs
 

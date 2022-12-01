@@ -78,7 +78,8 @@ T = TypeVar("T")
 
 WorkerJob = namedtuple("WorkerJob",
                        ("loss_fun", "num_batches", "batch_size",
-                        "test_set_batch", "save_dir", "run_num")
+                        "test_set_batch", "save_dir", "run_num",
+                        "correlated_batches")
                        )
 
 class SubdirNames(enum.Enum):
@@ -91,6 +92,7 @@ class SubdirNames(enum.Enum):
 
 PARAMETERS_FILENAME = "parameters.json"
 TSNE_PLOT_FILENAME  = "tsne_plots.pdf"
+HEATMAPS_SUMMARY_FILENAME = "heatmaps_summary.json"
 
 class PARAM_KEYS(enum.Enum):
     NUM_RUNS = "num_runs"
@@ -101,6 +103,7 @@ class PARAM_KEYS(enum.Enum):
     NUM_WORKERS = "num_workers"	
     SAVE_DIR = "save_dir"
     TIME = "time"	
+    CORREL_BATCHES = "correl_batches"
 
 # Settings for the plots
 CURVE_LINE_COLOR = np.array((201, 42, 42), dtype=np.float_) / 255
@@ -120,7 +123,8 @@ def train_enc_multiple_runs(
                   batch_size: int, 
                   test_set_batch: int,
                   num_workers: Optional[int] = None,
-                  root_dir: str = MULT_RUNS_DIR
+                  root_dir: str = MULT_RUNS_DIR,
+                  correlated_batches: bool = False
                   ) -> str:
     """
     Train an `AtariCNN` on the CIFAR10 dataset for `num_runs`
@@ -171,6 +175,8 @@ def train_enc_multiple_runs(
         and evaluation. If `None`, equally many workers are created
         as the current machine has CPUs.
     * root_dir: directory in which the experiment directory is created.
+    * correlated_batches: if `True`, all pairs of images within a batch
+        are of the same class. A class is randomly chosen for each batch.
 
     Returns:
     * Directory name of the newly created directory.
@@ -185,7 +191,10 @@ def train_enc_multiple_runs(
         if not os.path.exists(path):
             os.makedirs(path)
     __save_parameters(num_runs, loss_fun, num_batches, batch_size,
-                      test_set_batch, num_workers, save_dir)
+                      test_set_batch,
+                      correlated_batches = correlated_batches,
+                      num_workers=num_workers, 
+                      save_dir=save_dir)
     if torch.cuda.is_available():
         torch.set_default_tensor_type(torch.cuda.FloatTensor)
     else:
@@ -196,7 +205,8 @@ def train_enc_multiple_runs(
                       batch_size = batch_size,
                       test_set_batch = test_set_batch,
                       save_dir = save_dir,
-                      run_num = num)
+                      run_num = num,
+                      correlated_batches = correlated_batches)
             for num in range(num_runs)]
     __dispatch_jobs(jobs, num_workers)
     return save_dir
@@ -219,6 +229,7 @@ def __save_parameters(num_runs: int,
                       num_batches: int, 
                       batch_size: int, 
                       test_set_batch: int,
+                      correlated_batches: bool,
                       num_workers: Optional[int] = None,
                       save_dir: str = MULT_RUNS_DIR):
     parameters = {
@@ -229,19 +240,22 @@ def __save_parameters(num_runs: int,
           PARAM_KEYS.TEST_SET_BATCH.value: test_set_batch,
           PARAM_KEYS.NUM_WORKERS.value:    num_workers,
           PARAM_KEYS.SAVE_DIR.value:       save_dir,
-          PARAM_KEYS.TIME.value:           get_timestamp()
+          PARAM_KEYS.TIME.value:           get_timestamp(),
+          PARAM_KEYS.CORREL_BATCHES.value: correlated_batches
     }
     filename = os.path.join(save_dir, PARAMETERS_FILENAME)
     with open(filename, "w") as f:
         json.dump(parameters, f)
 
 def __perform_run(i:int, job: WorkerJob):
-    loss_fun, num_batches, batch_size, test_set_batch, save_dir, run_num = job
+    (loss_fun, num_batches, batch_size, test_set_batch, save_dir, run_num, \
+        correlated_batches) = job
     print(f"Started run {run_num} on process PID {os.getpid()}")
 
     encoder, losses = train_encoder(method="distance", distance_loss=loss_fun,
                                     run_checks=False, num_batches=num_batches,
-                                    batch_size=batch_size)
+                                    batch_size=batch_size,
+                                    correlated_batches=correlated_batches)
 
     print(f"Run {run_num} finished training; starting test set evaluation")
 
@@ -343,7 +357,7 @@ def __save_heatmap(heatmap: Tensor, run_root_dir: str, run_name: str):
     print(f"Saved heatmap of {run_name} as '{filename}'")
 
 
-def perform_test_execution() -> str:
+def perform_test_execution(correlated_batches: bool=False) -> str:
     """
     Test the multiple runs training, saving, loading
     and aggregating pipeline,
@@ -360,7 +374,8 @@ def perform_test_execution() -> str:
                                        test_set_batch=2,
                                        num_workers=2,
                                        root_dir = os.path.join(MULT_RUNS_DIR,
-                                                           "test_executions"))
+                                                           "test_executions"),
+                                       correlated_batches=correlated_batches)
     return save_dir
 
 def aggregate_results(save_dir: str,
@@ -562,7 +577,7 @@ def __heatmap_summary_statistics(heatmaps:Iterable[Tensor|NDArray],
             "upper_mean":upper_mean,
             "upper_std":upper_std
             }
-    filename = os.path.join(save_dir, "heatmaps_summary.json")
+    filename = os.path.join(save_dir, HEATMAPS_SUMMARY_FILENAME)
     with open(filename, "w") as f:
         json.dump(dictionary, f)
     print(f"Saved heatmap summary statistics as:\n{filename}")
@@ -581,7 +596,7 @@ def __load_files_ending_with(extension: str, directory: str,
     return output
 
 if __name__ == "__main__":
-    testrun_dir = perform_test_execution()
+    testrun_dir = perform_test_execution(correlated_batches=False)
     aggregate_results(testrun_dir, tsne_plots_num_cols=2, 
                       tsne_apply_jitter=False)
 
