@@ -111,10 +111,17 @@ CURVE_FILL_COLOR = np.append(CURVE_LINE_COLOR, [128/255])
 SAVGOL_WINDOW = 25
 HEATMAP_COLOR_MIN = 0
 HEATMAP_COLOR_MAX = 0.0005
-HEATMAP_IMSHOW_KWARGS = {
-        "vmin" : HEATMAP_COLOR_MIN,
-        "vmax" : HEATMAP_COLOR_MAX
-        }
+
+# This expression fixes the scale of the heatmap colorbar.
+# However, it seems different loss functions result
+# in very differently scaled latent spaces,
+# and mostly relative distances are important.
+# So fixing the colorbar caused more confusion than gain.
+# HEATMAP_IMSHOW_KWARGS = {
+        # "vmin" : HEATMAP_COLOR_MIN,
+        # "vmax" : HEATMAP_COLOR_MAX
+        # }
+HEATMAP_IMSHOW_KWARGS = None
 
 def train_enc_multiple_runs(
                   num_runs: int,
