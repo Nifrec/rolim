@@ -57,16 +57,17 @@ The simplest approach to install this repository via a terminal is to:
 The file `rolim/tools/libraries.py` imports all required libraries
 and print their versions, so it is a simple tool to verify the installation.
 This project has been tested with libraries:
-* python:       3.10.6
-* torch:        1.12.1+cu102
-* torchvision:  0.13.1+cu102
-* numpy:        1.23.4
-* sklearn:      1.1.3
-* matplotlib:   3.6.1
-* pandas:       1.5.1
-* scipy:        1.9.3
+* `python`:       `3.10.8`
+* `torch`:        `1.13.0`
+* `torchvision`:  `0.14.0`
+* `numpy`:        `1.23.4`
+* `sklearn`:      `1.1.3`
+* `matplotlib`:   `3.5.3`
+* `pandas`:       `1.5.1`
+* `scipy`:        `1.9.3`
 Other versions may also be compatible,
 but have not been tested.
+Version `1.12.1+cu102` of `torch` give issues.
 
 ## Notes/potential bugs
 * The code may accidentally try to store tensors on a GPU
