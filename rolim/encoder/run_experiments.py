@@ -36,12 +36,12 @@ concerning training encoders on CIFAR10.
 # Library imports:
 import torch
 from torch import Tensor
-from rolim.encoder.multiple_runs import (
-        aggregate_results,
-        train_enc_multiple_runs)
 
 # Local imports:
 from rolim.settings import MULT_RUNS_DIR
+from rolim.encoder.multiple_runs import (
+        aggregate_results,
+        train_enc_multiple_runs)
 
 
 NUM_RUNS = 50
