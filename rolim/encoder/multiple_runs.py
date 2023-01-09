@@ -62,7 +62,10 @@ import matplotlib.pyplot as plt
 
 # Local imports:
 from rolim.networks.architectures import AtariCNN
-from rolim.settings import (CIFAR10_CLASSES, CIFAR10_DIR, MULT_RUNS_DIR, RNG, 
+from rolim.settings import (CIFAR10_CLASSES, 
+                            CIFAR10_DIR, 
+                            MULT_RUNS_DIR, 
+                            RNG, 
                             DEVICE, 
                             TSNE_DEFAULT_PERPLEXITY,
                             REDOWNLOAD_DATASET)
@@ -89,9 +92,10 @@ class SubdirNames(enum.Enum):
     EMBEDDINGS      = "embeddings"
     TSNE_EMBEDDINGS = "tsne_embeddings"
     
-
+JPG_DPI = 300
 PARAMETERS_FILENAME = "parameters.json"
 TSNE_PLOT_FILENAME  = "tsne_plots.pdf"
+TSNE_PLOT_FILENAME_JPG = "tsne_plots.jpg"
 HEATMAPS_SUMMARY_FILENAME = "heatmaps_summary.json"
 
 class PARAM_KEYS(enum.Enum):
@@ -121,7 +125,7 @@ HEATMAP_COLOR_MAX = 0.0005
         # "vmin" : HEATMAP_COLOR_MIN,
         # "vmax" : HEATMAP_COLOR_MAX
         # }
-HEATMAP_IMSHOW_KWARGS = None
+HEATMAP_IMSHOW_KWARGS = {}
 
 def train_enc_multiple_runs(
                   num_runs: int,
@@ -448,7 +452,7 @@ def __make_tsne_mulitplot(save_dir: str, num_cols: int,
         ax= axs[i]
         embeddings = embeddingses[i]
         if apply_jitter:
-            embeddings = jitter_data(RNG, 10, embeddings)
+            embeddings = jitter_data(RNG, 1, embeddings)
         num_classes = len(CIFAR10_CLASSES)
         assert (embeddings.shape[0] % num_classes == 0), \
                 "Cannot evenly divide the embeddings over the image classes."
@@ -463,10 +467,11 @@ def __make_tsne_mulitplot(save_dir: str, num_cols: int,
 
     # No need to repeat the legend in each subfigure, in first is enough.
     axs[0].legend()
-    title = f"t_SNE embeddings per run using {params['loss_fun']} loss"
-    fig.suptitle(title, weight="bold", size="xx-large")
+    fig.tight_layout()
     filename = os.path.join(save_dir, TSNE_PLOT_FILENAME)
     fig.savefig(filename) # type: ignore
+    jpg_filename = os.path.join(save_dir, TSNE_PLOT_FILENAME_JPG)
+    fig.savefig(jpg_filename, dpi=JPG_DPI) # type: ignore
     print(f"Saved t-SNE multiplot as {filename}.")
 
 def __plot_learning_curves(save_dir: str, params: dict[str, Any]):
@@ -533,6 +538,8 @@ def __plot_heatmaps(heatmaps: list[Tensor],
     m_fig.tight_layout() 
     m_filename = os.path.join(save_dir, "heatmaps_mean.pdf")
     m_fig.savefig(m_filename)
+    m_filename_jpg = os.path.join(save_dir, "heatmaps_mean.jpg")
+    m_fig.savefig(m_filename_jpg, dpi=JPG_DPI)
     s_ax, s_fig, s_cb = plot_heatmap(std_heatmap, 
                                      xtick_labels=CIFAR10_CLASSES,
                                      ytick_labels=CIFAR10_CLASSES,
@@ -543,6 +550,8 @@ def __plot_heatmaps(heatmaps: list[Tensor],
     s_fig.tight_layout()
     s_filename = os.path.join(save_dir, "heatmaps_std.pdf")
     s_fig.savefig(s_filename)
+    s_filename_jpg = os.path.join(save_dir, "heatmaps_std.jpg")
+    s_fig.savefig(s_filename_jpg, dpi=JPG_DPI)
     print(f"Saved aggregated heatmaps as\n{m_filename}\nand\n{s_filename}")
 
 def __heatmap_summary_statistics(heatmaps:Iterable[Tensor|NDArray],
